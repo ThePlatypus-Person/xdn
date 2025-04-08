@@ -334,7 +334,6 @@ public class HttpActiveReplica {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-
             // redirect handling to xdn, if either of these two conditions are met:
             // (1) the HttpRequest contains non-empty XDN header, or
             // (2) the HttpRequest contains Host header ending in "xdnapp.com".
@@ -487,7 +486,6 @@ public class HttpActiveReplica {
                         ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
                     }
                 }
-
             }
 
         }
@@ -714,6 +712,19 @@ public class HttpActiveReplica {
                 implements ExecutedCallback {
             @Override
             public void executed(Request executedRequest, boolean handled) {
+                io.netty.handler.codec.http.HttpRequest reqData = request.getHttpRequest();
+
+                long d = System.nanoTime() - startProcessingTime;
+
+                String reqInfo = String.format("%s - %s%s %.3fs", 
+                    reqData.method().toString(), 
+                    request.getServiceName(),
+                    reqData.uri(),
+                    d / 1000_000_000.0
+                );
+                // Logger.getGlobal().log(Level.INFO, reqInfo);
+                System.out.println(reqInfo);
+               
                 // Validates the executed Http request
                 if (!(executedRequest instanceof XdnHttpRequest xdnRequest)) {
                     String exceptionMessage = "Unexpected executed request (" +
