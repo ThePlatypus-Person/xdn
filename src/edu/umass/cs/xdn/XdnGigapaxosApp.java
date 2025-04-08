@@ -837,7 +837,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         String containerName = String.format("%s.%s.xdn.io",
                 properties.serviceName, this.myNodeId);
-        String startCommand = String.format("docker run -d --name=%s --network=%s --publish=%d:%d %s",
+        String startCommand = String.format("docker run -d --restart unless-stopped --name=%s --network=%s --publish=%d:%d %s",
                 containerName, networkName, properties.mappedPort, properties.exposedPort,
                 properties.dockerImages.get(0));
         int exitCode = runShellCommand(startCommand, false);
@@ -919,7 +919,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         }
 
         // start the docker container
-        String startCommand = String.format("docker run -d --name=%s --network=%s --publish=%d:%d" +
+        String startCommand = String.format("docker run -d --restart unless-stopped --name=%s --network=%s --publish=%d:%d" +
                         " --mount type=bind,source=%s,target=%s %s",
                 containerName, networkName, properties.mappedPort, properties.exposedPort,
                 stateDirPath, properties.stateDir, properties.dockerImages.get(0));
@@ -1440,7 +1440,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         }
 
         String startCommand =
-                String.format("docker run --rm -d --name=%s --hostname=%s --network=%s " +
+                String.format("docker run -d --restart unless-stopped --name=%s --hostname=%s --network=%s " +
                                 "%s %s %s %s %s %s",
                         containerName, hostName, networkName, publishPortSubCmd, exposePortSubCmd,
                         mountSubCmd, envSubCmd, userSubCmd, imageName);
