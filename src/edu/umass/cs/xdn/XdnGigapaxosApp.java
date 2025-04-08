@@ -1461,6 +1461,18 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         assert targetPort != null;
         long endValidationTime = System.nanoTime();
 
+        // Log Endpoint Request
+        io.netty.handler.codec.http.HttpRequest httpRequest = xdnRequest.getHttpRequest();
+        String requestInfo = String.format("%s %s - %s:%d%s", 
+            this.myNodeId,
+            httpRequest.method().toString(), 
+            serviceName,
+            targetPort,
+            httpRequest.uri()
+        );
+        Logger.getGlobal().log(Level.INFO, requestInfo);
+        System.out.println(requestInfo);
+
         String requestRcvTimestampStr =
                 xdnRequest.getHttpRequest().headers().get("X-S-EXC-TS-" + myNodeId);
         if (requestRcvTimestampStr != null) {
