@@ -545,6 +545,15 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         );
 
         // TODO: remove already running containers, if any
+        for (String name: containerNames) {
+            String command = String.format("docker rm -f %s", name);
+            int code = Shell.runCommand(command, true);
+            if (code == 0) {
+                System.out.printf("Failed to remove %s. Container doesn't exist.\n", name);
+            } else if (code == 1) {
+                System.out.printf("%s successfully removed.\n", name);
+            }
+        }
 
         // create docker network, via command line
         int exitCode = createDockerNetwork(networkName);
@@ -1471,7 +1480,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             httpRequest.uri()
         );
         Logger.getGlobal().log(Level.INFO, requestInfo);
-        System.out.println(requestInfo);
+        // System.out.println(requestInfo);
 
         String requestRcvTimestampStr =
                 xdnRequest.getHttpRequest().headers().get("X-S-EXC-TS-" + myNodeId);
