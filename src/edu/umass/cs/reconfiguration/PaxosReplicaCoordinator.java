@@ -26,6 +26,8 @@ import edu.umass.cs.nio.JSONMessenger;
 import edu.umass.cs.nio.interfaces.IntegerPacketType;
 import edu.umass.cs.nio.interfaces.Messenger;
 import edu.umass.cs.nio.interfaces.Stringifiable;
+
+import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableRequest;
 import edu.umass.cs.reconfiguration.interfaces.ReplicableRequest;
 import edu.umass.cs.reconfiguration.reconfigurationpackets.ReconfigurationPacket;
@@ -186,11 +188,20 @@ public class PaxosReplicaCoordinator<NodeIDType> extends
 			ExecutedCallback callback) throws RequestParseException {
 		// prepare the updated callback that log the coordination duration
 		long startProcessingTime = System.nanoTime();
+
 		ExecutedCallback loggedCallback = callback;
         if (callback != null) {
             loggedCallback = (response, handled) -> {
                 callback.executed(response, handled);
+
+                // Log Time
                 long elapsedTime = System.nanoTime() - startProcessingTime;
+                String timeLog = String.format(
+                    "%50s %6.3fs", 
+                    "PaxosReplicaCoordinator.coordinateRequest()",
+                    elapsedTime / 1000_000_000.0
+                );
+                System.out.println(timeLog);
                 logger.log(Level.FINE, "{0}:{1} - request coordination within {2}ms",
                         new Object[]{this.paxosManager.getNodeID(),
                                 this.getClass().getSimpleName(),

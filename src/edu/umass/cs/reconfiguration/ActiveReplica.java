@@ -65,6 +65,7 @@ import edu.umass.cs.protocoltask.ProtocolExecutor;
 import edu.umass.cs.protocoltask.ProtocolTask;
 import edu.umass.cs.reconfiguration.ReconfigurationConfig.RC;
 import edu.umass.cs.reconfiguration.http.HttpActiveReplica;
+import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.interfaces.ActiveReplicaFunctions;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableAppInfo;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableNodeConfig;
@@ -1220,7 +1221,12 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 
 	/* ****************** Private methods below ******************* */
 
-	private boolean handRequestToApp(Request request, ExecutedCallback callback) {
+    private boolean handRequestToApp(Request request, ExecutedCallback callback) {
+        // Mark for time logging
+        if (callback instanceof TimedExecutedCallback timed) {
+            timed.mark("ActiveReplica.handRequestToApp()");
+        }
+
 		long t = System.nanoTime();
 		boolean handled = false;
 		try {
@@ -1652,6 +1658,11 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 	 */
 	@Override
 	public boolean handRequestToAppForHttp(Request request, ExecutedCallback callback) {
+        // Mark for time logging
+        if (callback instanceof TimedExecutedCallback timed) {
+            timed.mark("ActiveReplica.handRequestToAppForHttp()");
+        }
+
 		return handRequestToApp(request, callback);
 		// TODO: consider to send demand profile to RC.
 	}

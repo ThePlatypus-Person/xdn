@@ -41,6 +41,8 @@ import edu.umass.cs.nio.JSONPacket;
 import edu.umass.cs.nio.interfaces.IntegerPacketType;
 import edu.umass.cs.nio.interfaces.Messenger;
 import edu.umass.cs.nio.nioutils.NIOHeader;
+
+import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableRequest;
 import edu.umass.cs.reconfiguration.interfaces.ReconfiguratorCallback;
 import edu.umass.cs.reconfiguration.interfaces.ReplicaCoordinator;
@@ -233,6 +235,11 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
 	@SuppressWarnings("deprecation")
 	// only for backwards compatibility
 	protected boolean handleIncoming(Request request, ExecutedCallback callback) {
+        // Mark for time logging
+        if (callback instanceof TimedExecutedCallback timed) {
+            timed.mark("AbstractReplicaCoordinator.handleIncoming()");
+        }
+
 		boolean handled = false;
 		// check if coordination on request before unwrapping
 
@@ -255,6 +262,11 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
 
 	@Override
 	public boolean execute(Request request) {
+        // Mark for time logging
+        if (callback instanceof TimedExecutedCallback timed) {
+            timed.mark("AbstractReplicaCoordinator.execute()");
+        }
+
 		return this.execute(request, null);
 	}
 

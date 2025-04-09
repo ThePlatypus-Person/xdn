@@ -29,6 +29,7 @@ import edu.umass.cs.nio.interfaces.*;
 import edu.umass.cs.nio.nioutils.NIOHeader;
 import edu.umass.cs.nio.nioutils.PacketDemultiplexerDefault;
 import edu.umass.cs.nio.nioutils.SampleNodeConfig;
+import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.reconfigurationutils.TrivialRepliconfigurable;
 import edu.umass.cs.utils.*;
 import org.json.JSONArray;
@@ -1126,6 +1127,7 @@ public class PaxosManager<NodeIDType> {
                            ExecutedCallback callback) {
         if (this.isClosed())
             return null;
+
         boolean matched = false;
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
         if (pism != null) {

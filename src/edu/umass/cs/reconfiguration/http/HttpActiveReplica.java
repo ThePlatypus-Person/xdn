@@ -4,6 +4,7 @@ import edu.umass.cs.gigapaxos.interfaces.ExecutedCallback;
 import edu.umass.cs.gigapaxos.interfaces.Request;
 import edu.umass.cs.primarybackup.packets.ChangePrimaryPacket;
 import edu.umass.cs.reconfiguration.ReconfigurationConfig;
+import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.interfaces.ActiveReplicaFunctions;
 import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientRequest;
 import edu.umass.cs.utils.Config;
@@ -535,9 +536,17 @@ public class HttpActiveReplica {
                         new XdnHttpRequest(this.request, this.requestContent);
 
                 // prepare the callback for this http request
+                TimedExecutedCallback callback = new TimedExecutedCallback(
+                    httpRequest,
+                    new XdnHttpExecutedCallback(
+                        httpRequest, ctx, arFunctions, startXdnRequestProcTime)
+                );
+                /*
                 XdnHttpExecutedCallback callback =
                         new XdnHttpExecutedCallback(
                                 httpRequest, ctx, arFunctions, startXdnRequestProcTime);
+                */
+
 
                 // create Gigapaxos' request, it is important to explicitly set the clientAddress,
                 // otherwise, down the pipeline, the RequestPacket's equals method will return false
@@ -712,6 +721,8 @@ public class HttpActiveReplica {
                 implements ExecutedCallback {
             @Override
             public void executed(Request executedRequest, boolean handled) {
+                // Measure Processing Time
+                /*
                 io.netty.handler.codec.http.HttpRequest reqData = request.getHttpRequest();
 
                 long d = System.nanoTime() - startProcessingTime;
@@ -724,6 +735,7 @@ public class HttpActiveReplica {
                 );
                 // Logger.getGlobal().log(Level.INFO, reqInfo);
                 System.out.println(reqInfo);
+                */
                
                 // Validates the executed Http request
                 if (!(executedRequest instanceof XdnHttpRequest xdnRequest)) {
