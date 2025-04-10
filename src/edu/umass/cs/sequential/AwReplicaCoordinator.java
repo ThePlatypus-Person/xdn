@@ -63,8 +63,8 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
 		// prepare the updated callback that log the coordination duration
 		long startProcessingTime = System.nanoTime();
 
-        logger.log(Level.INFO, String.format(">> %s:AwReplicaCoordinator -- coordinateRequest %s\n",
-                this.myNodeID, request));
+        // logger.log(Level.INFO, String.format(">> %s:AwReplicaCoordinator -- coordinateRequest %s\n",
+        // this.myNodeID, request));
         if (!(request instanceof ReplicableClientRequest rcr)) {
             throw new RuntimeException("Unknown request/packet handled by AwReplicaCoordinator");
         }

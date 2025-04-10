@@ -1448,6 +1448,15 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             userSubCmd = String.format("--user=%d:%d", uid, gid);
         }
 
+        // Run with arbitrary user if the container is stateful
+        // Only been tested on PostgreSQL, MySQL, MariaDb
+        if (uid != 0 && mountDirTarget != null && !mountDirTarget.isEmpty()) {
+            userSubCmd = String.format(
+                "-v /etc/passwd:/etc/passwd:ro --user=%d:%d", 
+                uid, gid
+            );
+        }
+
         String startCommand =
                 String.format("docker run -d --restart unless-stopped --name=%s --hostname=%s --network=%s " +
                                 "%s %s %s %s %s %s",
