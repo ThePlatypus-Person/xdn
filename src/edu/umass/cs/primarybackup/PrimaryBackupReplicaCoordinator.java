@@ -109,6 +109,8 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
+		// prepare the updated callback that log the coordination duration
+		long startProcessingTime = System.nanoTime();
         ExecutedCallback chainedCallback = callback;
 
         // System.out.printf(">>> %s:PBRCoordinator - coordinateRequest %s %s\n\n",
@@ -130,6 +132,15 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
                     assert executedRequestPacket instanceof RequestPacket;
                     RequestPacket response = (RequestPacket) executedRequestPacket;
                     callback.executed(response.getResponse(), handled);
+
+                    // Log Time
+                    long elapsedTime = System.nanoTime() - startProcessingTime;
+                    String timeLog = String.format(
+                        "%50s %6.3fs", 
+                        "PaxosReplicaCoordinator.coordinateRequest()",
+                        elapsedTime / 1000_000_000.0
+                    );
+                    System.out.println(timeLog);
                 };
             }
 

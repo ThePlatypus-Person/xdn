@@ -60,6 +60,9 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
+		// prepare the updated callback that log the coordination duration
+		long startProcessingTime = System.nanoTime();
+
         logger.log(Level.INFO, String.format(">> %s:AwReplicaCoordinator -- coordinateRequest %s\n",
                 this.myNodeID, request));
         if (!(request instanceof ReplicableClientRequest rcr)) {
@@ -68,11 +71,27 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         Request clientRequest = rcr.getRequest();
         String serviceName = clientRequest.getServiceName();
 
+		ExecutedCallback loggedCallback = callback;
+        if (callback != null) {
+            loggedCallback = (response, handled) -> {
+                callback.executed(response, handled);
+
+                // Log Time
+                long elapsedTime = System.nanoTime() - startProcessingTime;
+                String timeLog = String.format(
+                    "%50s %6.3fs", 
+                    "AwReplicaCoordinator.coordinateRequest()",
+                    elapsedTime / 1000_000_000.0
+                );
+                System.out.println(timeLog);
+            };
+        }
+
         // We handle read-only request locally, with no coordination.
         if (clientRequest instanceof BehavioralRequest br && br.isReadOnlyRequest()) {
             boolean isExecSuccess = this.app.execute(clientRequest);
             if (isExecSuccess) {
-                callback.executed(clientRequest, true);
+                loggedCallback.executed(clientRequest, true);
             }
             return isExecSuccess;
         }
@@ -85,7 +104,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
             this.paxosManager.propose(serviceName, clientRequest, null);
             boolean isExecSuccess = this.app.execute(clientRequest);
             if (isExecSuccess) {
-                callback.executed(clientRequest, true);
+                loggedCallback.executed(clientRequest, true);
             }
             return isExecSuccess;
         }
@@ -93,7 +112,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         // Most requests, especially write-only and read-modify-write requests need to
         // be coordinated. Note that the code below is asynchronous, we wait for the
         // coordination confirmation before returning to client.
-        this.paxosManager.propose(serviceName, clientRequest, callback);
+        this.paxosManager.propose(serviceName, clientRequest, loggedCallback);
 
         return true;
     }

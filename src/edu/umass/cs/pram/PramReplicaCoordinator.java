@@ -84,10 +84,29 @@ public class PramReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinat
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
+		// prepare the updated callback that log the coordination duration
+		long startProcessingTime = System.nanoTime();
+
         System.out.println(">> " + myNodeID + " PramReplicaCoordinator -- receiving request " +
                 request.getClass().getSimpleName());
         if (!(request instanceof ReplicableClientRequest) && !(request instanceof PramPacket)) {
             throw new RuntimeException("Unknown request/packet handled by PramReplicaCoordinator");
+        }
+
+		ExecutedCallback loggedCallback = callback;
+        if (callback != null) {
+            loggedCallback = (response, handled) -> {
+                callback.executed(response, handled);
+
+                // Log Time
+                long elapsedTime = System.nanoTime() - startProcessingTime;
+                String timeLog = String.format(
+                    "%50s %6.3fs", 
+                    "PramReplicaCoordinator.coordinateRequest()",
+                    elapsedTime / 1000_000_000.0
+                );
+                System.out.println(timeLog);
+            };
         }
 
         // Convert the incoming Request into PramPacket
@@ -115,7 +134,7 @@ public class PramReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinat
             packet = (PramPacket) request;
         }
 
-        return handlePramPacket(packet, callback);
+        return handlePramPacket(packet, loggedCallback);
     }
 
     private boolean handlePramPacket(PramPacket packet, ExecutedCallback callback) {
