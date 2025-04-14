@@ -10,8 +10,11 @@ import edu.umass.cs.nio.interfaces.Messenger;
 import edu.umass.cs.nio.interfaces.Stringifiable;
 import edu.umass.cs.reconfiguration.AbstractReplicaCoordinator;
 import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientRequest;
+import edu.umass.cs.reconfiguration.reconfigurationutils.AbstractDemandProfile;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
 import edu.umass.cs.xdn.interfaces.behavior.BehavioralRequest;
+import edu.umass.cs.xdn.request.XdnHttpRequest;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -33,7 +36,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
     private final PaxosManager<NodeIDType> paxosManager;
     private final Replicable app;
 
-    private final Logger logger = Logger.getGlobal();
+    private final Logger logger = Logger.getLogger(AwReplicaCoordinator.class.getSimpleName());
 
     public AwReplicaCoordinator(Replicable app,
                                 NodeIDType myID,
@@ -46,7 +49,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         this.paxosManager = paxosManager;
         this.app = app;
 
-        assert messenger.getMyID().equals(myID) : "Invalid node id given in the messenger";
+        assert messenger.getMyID().equals(myID) : "Invalid node ID given in the messenger";
         assert this.nodeIdDeserializer.valueOf(this.myNodeID.toString()).equals(this.myNodeID)
                 : "Invalid node ID deserializer given";
 
@@ -65,8 +68,10 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
 
         // logger.log(Level.INFO, String.format(">> %s:AwReplicaCoordinator -- coordinateRequest %s\n",
         // this.myNodeID, request));
+    
         if (!(request instanceof ReplicableClientRequest rcr)) {
-            throw new RuntimeException("Unknown request/packet handled by AwReplicaCoordinator");
+            throw new RuntimeException("Unknown request/packet handled by AwReplicaCoordinator " +
+                    request.getRequestType());
         }
         Request clientRequest = rcr.getRequest();
         String serviceName = clientRequest.getServiceName();
@@ -86,6 +91,15 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
                 System.out.println(timeLog);
             };
         }
+
+        String requestLogText = "";
+        if (clientRequest instanceof XdnHttpRequest xdnHttpRequest) {
+            requestLogText = xdnHttpRequest.getLogText();
+        } else {
+            requestLogText = clientRequest.getRequestType().toString();
+        }
+        logger.log(Level.INFO, String.format("%s:AwReplicaCoordinator -- coordinateRequest %s\n",
+                this.myNodeID, requestLogText));
 
         // We handle read-only request locally, with no coordination.
         if (clientRequest instanceof BehavioralRequest br && br.isReadOnlyRequest()) {
@@ -131,12 +145,42 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
                     this.paxosManager.getVersion(serviceName));
         }
 
+        // parse the placementMetadata, if provided
+        if (placementMetadata != null) {
+            String preferredCoordinatorNodeId = null;
+            try {
+                JSONObject json = new JSONObject(placementMetadata);
+                preferredCoordinatorNodeId = json.getString(
+                        AbstractDemandProfile.Keys.PREFERRED_COORDINATOR.toString());
+            } catch (JSONException e) {
+                logger.log(Level.WARNING,
+                        "{0} failed to parse preferred coordinator in the placement metadata: {1}",
+                        new Object[] { this, e });
+            }
+            if (this.myNodeID.toString().equals(preferredCoordinatorNodeId)) {
+                this.paxosManager.tryToBePaxosCoordinator(serviceName);
+                Thread electionThread = new Thread(() -> {
+                    System.out.println(">>>>>>>>>> [1] Waiting 30s for " + this.getMyID() + " to be coordinator of " + serviceName);
+                    try {
+                        Thread.sleep(30_000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    this.paxosManager.tryToBePaxosCoordinator(serviceName);
+                });
+                electionThread.start();
+            }
+        }
+
+        this.paxosManager.tryToBePaxosCoordinator(serviceName);
+
         return true;
     }
 
     @Override
     public boolean deleteReplicaGroup(String serviceName, int epoch) {
-        this.paxosManager.proposeStop(serviceName, epoch, "stop",
+        Request stopRequest = this.getStopRequest(serviceName, epoch);
+        this.paxosManager.proposeStop(serviceName, epoch, stopRequest,
                 (executedStopRequest, isHandled) ->
                         paxosManager.deleteStoppedPaxosInstance(serviceName, epoch));
         return true;
@@ -146,4 +190,10 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
     public Set<NodeIDType> getReplicaGroup(String serviceName) {
         return this.paxosManager.getReplicaGroup(serviceName);
     }
+
+    public boolean isPaxosCoordinator(String serviceName) {
+        assert serviceName != null : "Service name cannot be null";
+        return this.paxosManager.isPaxosCoordinator(serviceName);
+    }
+
 }

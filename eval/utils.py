@@ -2,6 +2,7 @@ import csv
 import math
 import heapq
 import random
+import string
 import numpy as np
 from sklearn.cluster import KMeans
 
@@ -448,7 +449,8 @@ def find_k_closest_servers(servers, reference_server, k):
 
 def get_expected_latencies(replica_locations, client_locations, leader_name, 
                            lat_slowdown_factor, is_report_per_city=False,
-                           is_direct_all_to_leader=False):
+                           is_direct_all_to_leader=False,
+                           data_commit_quorum_size=None):
     """
     Given a replica group placement and client spatial distribution, this 
     function calculates the expected latencies.
@@ -478,6 +480,9 @@ def get_expected_latencies(replica_locations, client_locations, leader_name,
     # server in the closest quorum. Note that find_k_closest_servers
     # returns servers ordered by distance (ascending).
     quorum_size = (len(replicas)+1) // 2
+    if data_commit_quorum_size != None:
+        assert data_commit_quorum_size <= len(replicas), f"Invalid data commit quorum size"
+        quorum_size = data_commit_quorum_size
     closest_peers = find_k_closest_servers(replicas, leader, quorum_size)
     assert len(closest_peers) >= 1
     furthest_quorum_server = closest_peers[-1]
@@ -561,3 +566,19 @@ def get_expected_latencies(replica_locations, client_locations, leader_name,
         return latencies_per_city
 
     return latencies
+
+def replace_placeholder(file_path, placeholder, value):
+    try:
+        with open(file_path, 'r') as file:
+            content = file.read()
+        content = content.replace(placeholder, value)
+        with open(file_path, 'w') as file:
+            file.write(content)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def generate_random_string(n):
+    # Define the pool of characters: uppercase, lowercase letters, and digits.
+    characters = string.ascii_letters + string.digits
+    # random.choices selects k random characters from the pool (with replacement)
+    return ''.join(random.choices(characters, k=n))

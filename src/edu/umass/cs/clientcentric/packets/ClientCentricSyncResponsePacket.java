@@ -7,6 +7,7 @@ import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -108,9 +109,14 @@ public class ClientCentricSyncResponsePacket extends ClientCentricPacket {
                 String raw = requestJsonArr.getString(i);
                 encodedRequests.add(raw.getBytes(StandardCharsets.ISO_8859_1));
             }
-            return new ClientCentricSyncResponsePacket(packetId, serviceName, senderId,
+
+            assert !serviceName.equalsIgnoreCase("AR1");
+            assert !serviceName.equalsIgnoreCase("AR2");
+
+            return new ClientCentricSyncResponsePacket(packetId, senderId, serviceName,
                     fromSeqNum, encodedRequests);
         } catch (JSONException e) {
+            System.out.println("receiving an invalid encoded client-centric-sync-resp packet, exception: " + e);
             Logger.getGlobal().log(Level.SEVERE,
                     "receiving an invalid encoded client-centric-sync-resp packet");
             return null;

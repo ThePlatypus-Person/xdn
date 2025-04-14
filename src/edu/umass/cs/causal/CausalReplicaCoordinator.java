@@ -34,12 +34,10 @@ import java.util.logging.Logger;
  * The protocol implemented here is based on Causal Memory by Ahamad, et al. (Georgia Tech report of
  * GIT-CC-93/55) from 1993, which provide Causal Consistency guarantee.
  * Some modifications from that base protocol includes:
- * - the use of directed acyclic graph (DAG), instead of queue, for the InQueue in each node,
- * - the wait of a majority quorum in the write path, ensuring the written value survive when up to
- * half of the replicas are unavailable.
+ * - the use of directed acyclic graph (DAG), instead of queue, for the InQueue in each node
  * <p>
  * TODO:
- *  - Implement background sub-graph prunning by removing vertices that are already acknowledged
+ *  - Implement background sub-graph pruning by removing vertices that are already acknowledged
  *    by *all* the nodes. This requires recording the acknowledgements.
  *  - Implement optimization by keep track of the peer's timestamp (matrix clock) to send the needed
  *    dependencies for each peer, preventing the peer to wait (or ask) for the dependencies.
@@ -70,9 +68,7 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
                          int readQuorumSize,
                          DirectedAcyclicGraph dag,
 
-                         // buffered write-request, waiting for write quorum
-                         Map<VectorTimestamp, List<ClientRequestAndCallback>> pendingRequests,
-
+                         // quorum tracker to prune vertex in our DAG
                          Map<VectorTimestamp, QuorumRecord> graphNodeQuorumRecord,
 
                          // buffered write-fwd, waiting for missing dependencies
@@ -107,7 +103,7 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
         types.add(CausalPacketType.CAUSAL_PACKET);
         this.requestTypes = types;
 
-        // Add packet demultiplexer for CausalPacket that will invoke the coordinateRequest() method
+        // Add packet de-multiplexer for CausalPacket that will invoke coordinateRequest() method
         CausalPacketDemultiplexer packetDemultiplexer =
                 new CausalPacketDemultiplexer(this, app);
         this.messenger.precedePacketDemultiplexer(packetDemultiplexer);
@@ -127,7 +123,7 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
 		long startProcessingTime = System.nanoTime();
 
         this.logger.log(Level.INFO, "node=" + this.myNodeID + " coordinating request " +
-                request);
+                request.getClass().getSimpleName());
 
 		ExecutedCallback loggedCallback = callback;
         if (callback != null) {
@@ -176,7 +172,8 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
         // of zero in the DAG.
         List<String> nodesIds = new ArrayList<>();
         for (NodeIDType n : nodes) nodesIds.add(n.toString());
-        GraphVertex zeroRootNode = new GraphVertex(new VectorTimestamp(nodesIds), new ArrayList<>());
+        GraphVertex zeroRootNode =
+                new GraphVertex(new VectorTimestamp(nodesIds), new ArrayList<>());
         ReplicaInstance<NodeIDType> instance =
                 new ReplicaInstance<>(
                         /*serviceName=*/serviceName,
@@ -186,8 +183,7 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
                         /*writeQuorumSize=*/writeQuorumSize,
                         /*readQuorumSize=*/readQuorumSize,
                         /*dag=*/new DirectedAcyclicGraph(zeroRootNode),
-                        /*pendingRequests=*/new HashMap<>(),
-                        /*pendingForwardPackets=*/new HashMap<>(),
+                        /*pendingForwardPackets=*/new ConcurrentHashMap<>(),
                         /*writeQuorumRecord=*/new HashMap<>());
         this.instances.put(serviceName, instance);
 
@@ -226,12 +222,14 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
                                         ExecutedCallback callback) {
         assert clientReplicableRequest != null : "client request cannot be null";
 
-        // FIXME: stop packet should not be wrapped as client request
+        // Stop packet is sometimes wrapped in ClientRequest by ActiveReplica
         if (clientReplicableRequest.getRequest() instanceof ReconfigurableRequest rcRequest &&
                 rcRequest.isStop()) {
             System.out.println(">> CausalReplicaCoordinator -- stopping a service in epoch=" +
                     rcRequest.getEpochNumber());
-            return this.app.restore(clientReplicableRequest.getServiceName(), null);
+            boolean isSuccess = this.app.restore(clientReplicableRequest.getServiceName(), null);
+            callback.executed(rcRequest, isSuccess);
+            return isSuccess;
         }
 
         // Validates the client request
@@ -265,17 +263,17 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
             nodeIds.add(n.toString());
         }
 
-        // handle write-only request by forwarding it to the write-quorum
+        // Handle write-only request by forwarding it to the write-quorum
         if (behavioralRequest.isWriteOnlyRequest()) {
-            // get the leaf timestamps
+            // Get the current leaf vector timestamps
             List<GraphVertex> leafOpNodes = serviceInstance.dag.getLeafVertices();
             List<VectorTimestamp> leafTimestamp = new ArrayList<>();
             for (GraphVertex leafNode : leafOpNodes) {
                 leafTimestamp.add(leafNode.getTimestamp());
             }
 
-            // Create a new GraphNode with a dominant timestamp, by increasing our component
-            // in the timestamp.
+            // Create a new GraphNode with a dominant timestamp, by increasing this replica's
+            // component in the vector timestamp.
             VectorTimestamp maxTimestamp = !leafTimestamp.isEmpty()
                     ? VectorTimestamp.createMaxTimestamp(leafTimestamp)
                     : new VectorTimestamp(nodeIds);
@@ -283,16 +281,14 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
             GraphVertex newOpNode = new GraphVertex(dominantTimestamp, List.of(clientRequest));
             serviceInstance.dag.addChildOf(leafOpNodes, newOpNode);
 
-            serviceInstance.pendingRequests.putIfAbsent(
-                    dominantTimestamp,
-                    List.of(new ClientRequestAndCallback((ClientRequest) clientRequest, callback)));
-
             // execute the request
             boolean isExecSuccess = this.app.execute(clientRequest);
             assert isExecSuccess : "failed to execute request " + clientRequest;
 
-            // Broadcast the write request to all, then this node need to wait for
-            // the write quorum.
+            // Send response back to client
+            callback.executed(clientRequest, true);
+
+            // Asynchronously broadcast the write request, containing the dependencies.
             serviceInstance.graphNodeQuorumRecord.put(
                     dominantTimestamp,
                     new QuorumRecord(
@@ -316,24 +312,10 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
                 throw new RuntimeException(e);
             }
 
-            // Handle an edge-case when write quorum is one (i.e., myself is enough)
-            QuorumRecord qr = serviceInstance.graphNodeQuorumRecord.get(dominantTimestamp);
-            boolean isQuorumAchieved =
-                    qr.confirmingNodeIds.size() >= serviceInstance.writeQuorumSize;
-            if (isQuorumAchieved) {
-                serviceInstance.graphNodeQuorumRecord.remove(dominantTimestamp);
-                List<ClientRequestAndCallback> callbacks =
-                        serviceInstance.pendingRequests.get(dominantTimestamp);
-                for (ClientRequestAndCallback cb : callbacks) {
-                    Request request = cb.request();
-                    cb.callback.executed(request, true);
-                }
-            }
-
             return true;
         }
 
-        // handle read-only request by executing it locally
+        // Handle read-only request by executing it locally
         if (behavioralRequest.isReadOnlyRequest()) {
             boolean isExecSuccess = this.app.execute(clientRequest);
             assert isExecSuccess : "failed to execute request " + clientRequest;
@@ -348,41 +330,44 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
     protected boolean handleCoordinationPacket(CausalPacket packet) {
 
         if (packet instanceof CausalWriteForwardPacket writeForwardPacket) {
-            return this.handleWriteForwardPacket(writeForwardPacket);
+            this.handleWriteForwardPacket(writeForwardPacket);
+            return true;
         }
 
         if (packet instanceof CausalWriteAckPacket ackPacket) {
-            return this.handleWriteAckPacket(ackPacket);
+            this.handleWriteAckPacket(ackPacket);
+            return true;
         }
 
         throw new RuntimeException("Unimplemented handler of packet " + packet.getRequestType());
     }
 
-    private boolean handleWriteForwardPacket(CausalWriteForwardPacket packet) {
+    private void handleWriteForwardPacket(CausalWriteForwardPacket packet) {
         String serviceName = packet.getServiceName();
         ReplicaInstance<NodeIDType> serviceInstance = this.instances.get(serviceName);
-        assert serviceInstance != null : "unknown service with name=" + serviceName;
+        assert serviceInstance != null : "Unknown service with name=" + serviceName;
 
         // Validate that we have all the parents node (i.e., dependencies)
         List<VectorTimestamp> dependencies = packet.getDependencies();
         boolean isDependenciesSatisfied = serviceInstance.dag.isContainAll(dependencies);
 
-        // If we don't have all the dependencies, then buffer the forwarded write operation.
+        // If we don't have all the dependencies, then buffer the forwarded write operation so
+        // that we can execute the operation later, once the dependencies are satisfied.
         if (!isDependenciesSatisfied) {
             serviceInstance.pendingForwardPackets.put(
                     packet.getRequestTimestamp(), packet);
-            // TODO: request the missing dependencies from other nodes.
-            throw new RuntimeException("Unimplemented: missing dependencies, " +
-                    "need to sync with our peer.");
+            return;
         }
 
-        // Execute the request
+        // Execute the write-only request
         ClientRequest clientRequest = packet.getClientWriteOnlyRequest();
-        // TODO: assert the client request type is write only
+        assert clientRequest instanceof BehavioralRequest behavioralRequest &&
+                behavioralRequest.isWriteOnlyRequest() :
+                "Expecting WriteOnlyRequest but got " + clientRequest.getClass().getSimpleName();
         boolean isExecSuccess = this.app.execute(clientRequest);
         assert isExecSuccess;
 
-        // Update my local causal graph
+        // Update my local causal directly-acyclic graph
         List<GraphVertex> parentGraphVertices =
                 serviceInstance.dag.getVerticesByTimestamps(dependencies);
         GraphVertex newGraphVertex = new GraphVertex(
@@ -413,10 +398,52 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
             throw new RuntimeException(e);
         }
 
-        return true;
+        // Handle all pending forwarded requests, if any.
+        handlePendingForwardedWriteAfterPackets(serviceInstance);
     }
 
-    private boolean handleWriteAckPacket(CausalWriteAckPacket packet) {
+    private void handlePendingForwardedWriteAfterPackets(
+            ReplicaInstance<NodeIDType> serviceInstance) {
+        assert serviceInstance != null : "Unexpected null ServiceInstance";
+        if (serviceInstance.pendingForwardPackets.isEmpty()) {
+            return;
+        }
+
+        Iterator<Map.Entry<VectorTimestamp, CausalWriteForwardPacket>> iterator =
+                serviceInstance.pendingForwardPackets.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<VectorTimestamp, CausalWriteForwardPacket> entry = iterator.next();
+            CausalWriteForwardPacket currPacket = entry.getValue();
+            List<VectorTimestamp> currDependencies = currPacket.getDependencies();
+            boolean isDepSatisfied = serviceInstance.dag.isContainAll(currDependencies);
+
+            // Ignore if the dependencies are still not satisfied
+            if (!isDepSatisfied) continue;
+
+            // Execute the pending write-only request as the deps are satisfied already
+            ClientRequest clientRequest = currPacket.getClientWriteOnlyRequest();
+            assert clientRequest instanceof BehavioralRequest behavioralRequest &&
+                    behavioralRequest.isWriteOnlyRequest() :
+                    "Expecting WriteOnlyRequest but got " + clientRequest.getClass().getSimpleName();
+            boolean isExecSuccess = this.app.execute(clientRequest);
+            assert isExecSuccess : "Failed to execute the pending write request";
+
+            // Update my local causal directly-acyclic graph
+            List<GraphVertex> parentGraphVertices =
+                    serviceInstance.dag.getVerticesByTimestamps(currDependencies);
+            GraphVertex newGraphVertex = new GraphVertex(
+                    currPacket.getRequestTimestamp(),
+                    List.of(currPacket.getClientWriteOnlyRequest()));
+            serviceInstance.dag.addChildOf(parentGraphVertices, newGraphVertex);
+
+            // remove the pending write after packet from the map
+            iterator.remove();
+
+            // TODO: optionally send Ack to the sender
+        }
+    }
+
+    private void handleWriteAckPacket(CausalWriteAckPacket packet) {
         String serviceName = packet.getServiceName();
         ReplicaInstance<NodeIDType> serviceInstance = this.instances.get(serviceName);
         if (serviceInstance == null) {
@@ -426,40 +453,18 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
         VectorTimestamp ts = packet.getConfirmedGraphNodeId();
         QuorumRecord qr = serviceInstance.graphNodeQuorumRecord.get(ts);
         if (qr == null) {
-            this.logger.log(Level.INFO, "Ignoring non-existent vertex.");
-            return true;
+            this.logger.log(Level.INFO, "Ignoring non-existent vertex in our DAG.");
+            return;
         }
 
         // records the acknowledgement
         qr.confirmingNodeIds().add(packet.getSenderId());
         if (qr.confirmingNodeIds().size() == serviceInstance.nodes().size()) {
-            // TODO: send prunning packet to all nodes (can be done asynchronously),
+            // TODO: send pruning packet to all nodes (can be done asynchronously),
             //  then remove the record.
             serviceInstance.graphNodeQuorumRecord().remove(ts);
-            return true;
+            return;
         }
-
-        // checks quorum requirement
-        boolean isQuorumAchieved = qr.confirmingNodeIds.size() >= serviceInstance.writeQuorumSize;
-        if (!isQuorumAchieved) {
-            return true;
-        }
-
-        // quorum is achieved, return the response back to client (if we haven't).
-        List<ClientRequestAndCallback> callbacks = serviceInstance.pendingRequests.get(ts);
-        if (callbacks == null) {
-            // we have returned response previously for this vertex
-            return true;
-        }
-
-        // actually send response back to client, because we haven't yet.
-        for (ClientRequestAndCallback cb : callbacks) {
-            Request request = cb.request();
-            cb.callback.executed(request, true);
-        }
-        serviceInstance.pendingRequests.remove(ts);
-
-        return true;
     }
 
 }

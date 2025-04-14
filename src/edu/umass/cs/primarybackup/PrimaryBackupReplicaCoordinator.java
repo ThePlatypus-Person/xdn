@@ -113,9 +113,10 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
 		long startProcessingTime = System.nanoTime();
         ExecutedCallback chainedCallback = callback;
 
-        // System.out.printf(">>> %s:PBRCoordinator - coordinateRequest %s %s\n\n",
-        //        getMyID(), request.getClass().getSimpleName(),
-        //        request instanceof ReplicableClientRequest rcr ? rcr.getRequest().getClass().getSimpleName() : "null");
+         System.out.printf(">>> %s:PBRCoordinator - coordinateRequest %s %s\n\n",
+                getMyID(), request.getClass().getSimpleName(),
+                request instanceof ReplicableClientRequest rcr
+                        ? rcr.getRequest().getClass().getSimpleName() : "null");
 
         // if packet comes from client (i.e., ReplicableClientRequest), wrap the
         // containing request with RequestPacket, and re-chain the callback.
@@ -205,4 +206,7 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
         this.pbManager.stop();
     }
 
+    public boolean isPrimary(String serviceName) {
+        return this.pbManager.isCurrentPrimary2(serviceName);
+    }
 }

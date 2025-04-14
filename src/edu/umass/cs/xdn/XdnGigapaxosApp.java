@@ -6,11 +6,13 @@ import edu.umass.cs.gigapaxos.interfaces.Request;
 import edu.umass.cs.nio.interfaces.IntegerPacketType;
 import edu.umass.cs.primarybackup.interfaces.BackupableApplication;
 import edu.umass.cs.primarybackup.packets.*;
+import edu.umass.cs.reconfiguration.ReconfigurationConfig;
 import edu.umass.cs.reconfiguration.http.HttpActiveReplicaRequest;
 import edu.umass.cs.reconfiguration.interfaces.InitialStateValidator;
 import edu.umass.cs.reconfiguration.interfaces.Reconfigurable;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableRequest;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
+import edu.umass.cs.utils.Config;
 import edu.umass.cs.utils.ZipFiles;
 import edu.umass.cs.xdn.recorder.*;
 import edu.umass.cs.xdn.request.*;
@@ -48,7 +50,6 @@ import java.util.logging.Logger;
 public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableApplication,
         InitialStateValidator {
 
-    private boolean IS_USE_FUSE = false;
     private final boolean IS_RESTART_UPON_STATE_DIFF_APPLY = false;
     private final String FUSELOG_BIN_PATH = "/users/fadhil/fuse/fuselog";
     private final String FUSELOG_APPLY_BIN_PATH = "/users/fadhil/fuse/apply";
@@ -78,7 +79,9 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     private final HashMap<String, Boolean> isServiceActive;
     private final HttpClient serviceClient = HttpClient.newHttpClient();
 
-    private RecorderType recorderType = RecorderType.RSYNC;
+    private final String stateDiffRecorderTypeString =
+            Config.getGlobalString(ReconfigurationConfig.RC.XDN_PB_STATEDIFF_RECORDER_TYPE);
+    private RecorderType recorderType;
     private AbstractStateDiffRecorder stateDiffRecorder;
 
     private final Logger logger = Logger.getLogger(XdnGigapaxosApp.class.getName());
@@ -98,12 +101,24 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // Validate and initialize the stateDiff recorder for Primary Backup.
         // We need to check the Operating System as currently FUSE (i.e., Fuselog)
         // is only supported on Linux.
-        if (IS_USE_FUSE || recorderType.equals(RecorderType.FUSELOG)) {
+        if (stateDiffRecorderTypeString.equalsIgnoreCase(RecorderType.RSYNC.toString())) {
+            recorderType = RecorderType.RSYNC;
+        } else if (stateDiffRecorderTypeString.equalsIgnoreCase(RecorderType.FUSELOG.toString())) {
+            recorderType = RecorderType.FUSELOG;
+        } else if (stateDiffRecorderTypeString.equalsIgnoreCase(RecorderType.ZIP.toString())) {
+            recorderType = RecorderType.ZIP;
+        } else {
+            String errMsg = "[ERROR] Unknown StateDiff recorder type of " +
+                    stateDiffRecorderTypeString;
+            System.out.println(errMsg);
+            throw new RuntimeException(errMsg);
+        }
+        if (recorderType.equals(RecorderType.FUSELOG)) {
             String osName = System.getProperty("os.name");
             if (!osName.equalsIgnoreCase("linux")) {
                 String errMsg = "[WARNING] FUSE can only be used in Linux. Failing back to rsync.";
                 System.out.println(errMsg);
-                IS_USE_FUSE = false;
+                logger.log(Level.WARNING, errMsg);
                 recorderType = RecorderType.RSYNC;
             }
         }
@@ -184,7 +199,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                             xdnHttpRequest.getHttpRequest().method(),
                             serviceName,
                             xdnHttpRequest.getHttpRequest().uri(),
-                            xdnHttpRequest.getRequestID()});
+                            String.valueOf(xdnHttpRequest.getRequestID())});
             return true;
         }
 
@@ -202,50 +217,11 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         throw new RuntimeException(exceptionMessage);
     }
 
-    @Deprecated
-    private void deactivate(String serviceName) {
-        System.out.println(">> " + myNodeId + " deactivate...");
-
-        try {
-            // without FUSE (i.e., using Zip archive, we need the service container to be running
-            if (!IS_USE_FUSE) {
-                return;
-            }
-
-            // stop container
-            boolean isSuccess = stopContainer(serviceName);
-            if (!isSuccess) {
-                System.err.println("failed to deactivate active container");
-                return;
-            }
-
-            // disconnect filesystem socket
-            SocketChannel socketChannel = fsSocketConnection.get(serviceName);
-            if (socketChannel != null) {
-                socketChannel.close();
-                fsSocketConnection.remove(serviceName);
-            }
-
-            // unmount filesystem
-            String containerName = String.format("%s.%s.xdn.io", serviceName, this.myNodeId);
-            String stateDirPath = String.format("/tmp/xdn/fuselog/state/%s/", containerName);
-            String unmountCommand = String.format("umount %s", stateDirPath);
-            int errCode = runShellCommand(unmountCommand, false);
-            if (errCode != 0) {
-                System.err.println("failed to unmount filesystem");
-                return;
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void activate(String serviceName) {
         System.out.println(">> " + myNodeId + " activate...");
 
         // without FUSE (i.e., using Zip archive, we need the service container to be running
-        if (!IS_USE_FUSE) {
+        if (!recorderType.equals(RecorderType.FUSELOG)) {
             return;
         }
 
@@ -384,10 +360,30 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     public Request getRequest(String stringified) throws RequestParseException {
         XdnRequestType packetType = XdnRequest.getQuickPacketTypeFromEncodedPacket(stringified);
         assert packetType != null :
-                "Unknown XDN Request handled by XdnGigapaxosApp. Request: " + stringified;
+                "Unknown XDN Request handled by XdnGigapaxosApp. Request: '" + stringified + "'";
 
         if (packetType.equals(XdnRequestType.XDN_SERVICE_HTTP_REQUEST)) {
-            return XdnHttpRequest.createFromString(stringified);
+            XdnHttpRequest httpRequest = XdnHttpRequest.createFromString(stringified);
+
+            // we need to set the request matcher after creating XdnHttpRequest
+            // TODO: this code will fail if the service name doesnt exist in this replica,
+            //   we need to refactor XdnHttpRequest so that we don't need to set the
+            //   request matcher after each creation.
+            //   The issue is there because the behavior of each request is service specific.
+            //   The request can either be constructed in the entry replica, or when a replica
+            //   receive forwarded request.
+            if (httpRequest == null) return null;
+            String serviceName = httpRequest.getServiceName();
+            Map<Integer, ServiceInstance> currServiceInstance =
+                    this.serviceInstances.get(serviceName);
+            if (currServiceInstance == null) return null;
+            Integer currServicePlacementEpoch = this.servicePlacementEpoch.get(serviceName);
+            if (currServicePlacementEpoch == null) return null;
+            ServiceInstance currInstance = currServiceInstance.get(currServicePlacementEpoch);
+            if (currInstance == null) return null;
+            ServiceProperty serviceProperty = currInstance.property;
+            httpRequest.setRequestMatchers(serviceProperty.getRequestMatchers());
+            return httpRequest;
         }
 
         if (packetType.equals(XdnRequestType.XDN_STOP_REQUEST)) {
@@ -799,6 +795,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         }
 
         // clean the mounted dir for this epoch
+        stateDiffRecorder.removeServiceRecorder(serviceName, placementEpoch);
         String removeDirCommand = String.format("rm -rf %s", toBeRemovedMountDir);
         int code = Shell.runCommand(removeDirCommand);
         assert code == 0;
@@ -840,7 +837,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      * startContainer runs the bash command below to start running a docker container.
      */
     private boolean startContainer(XdnServiceProperties properties, String networkName) {
-        if (IS_USE_FUSE) {
+        if (recorderType.equals(RecorderType.FUSELOG)) {
             return startContainerWithFSMount(properties, networkName);
         }
 
@@ -968,7 +965,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     private int createDockerNetwork(String networkName) {
         String createNetCmd = String.format("docker network create %s",
                 networkName);
-        int exitCode = runShellCommand(createNetCmd, true);
+        int exitCode = runShellCommand(createNetCmd, false);
         if (exitCode != 0 && exitCode != 1) {
             // 1 is the exit code of creating already exist network
             System.err.println("Error: failed to create network");
@@ -1250,14 +1247,14 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             Logger.getGlobal().log(Level.WARNING,
                     "Ignoring capture final state request for an unknown service with name=" +
                             serviceName);
-            return false;
+            return true;
         }
         ServiceInstance serviceInstance = epochToInstanceMap.get(epoch);
         if (serviceInstance == null) {
             Logger.getGlobal().log(Level.WARNING,
                     String.format("Ignoring capture final state request for an unknown " +
                             "epoch=%d for name=%s", epoch, serviceName));
-            return false;
+            return true;
         }
 
         // Remove the previously captured final state, if any.
@@ -1456,6 +1453,9 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                 uid, gid
             );
         }
+
+        String clearCommand = String.format("docker container rm --force %s", containerName);
+        Shell.runCommand(clearCommand, true);
 
         String startCommand =
                 String.format("docker run -d --restart unless-stopped --name=%s --hostname=%s --network=%s " +

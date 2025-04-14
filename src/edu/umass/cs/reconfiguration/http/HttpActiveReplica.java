@@ -8,6 +8,7 @@ import edu.umass.cs.reconfiguration.http.TimedExecutedCallback;
 import edu.umass.cs.reconfiguration.interfaces.ActiveReplicaFunctions;
 import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientRequest;
 import edu.umass.cs.utils.Config;
+import edu.umass.cs.xdn.request.XdnGetProtocolRoleRequest;
 import edu.umass.cs.xdn.request.XdnHttpRequest;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -528,6 +529,12 @@ public class HttpActiveReplica {
                     handleCoordinatorRequest(p, ctx);
                     return;
                 }
+                if (this.request.headers().get("XdnGetProtocolRoleRequest") != null) {
+                    XdnGetProtocolRoleRequest xdnGetProtocolRoleRequest =
+                            new XdnGetProtocolRoleRequest(serviceName);
+                    handleCoordinatorRequest(xdnGetProtocolRoleRequest, ctx);
+                    return;
+                }
 
                 // instrumenting the request for latency measurement
                 this.request.headers().set("X-S-EXC-TS-" + nodeId, System.nanoTime());
@@ -566,9 +573,15 @@ public class HttpActiveReplica {
         }
 
         // TODO: cleanly handle this
-        private void handleCoordinatorRequest(ChangePrimaryPacket p, ChannelHandlerContext context) {
+        private void handleCoordinatorRequest(Request p, ChannelHandlerContext context) {
+            assert p instanceof ChangePrimaryPacket || p instanceof XdnGetProtocolRoleRequest :
+                    "Unexpected packet type of " + p.getClass().getSimpleName();
             arFunctions.handRequestToAppForHttp(p, (request, handled) -> {
-                sendStringResponse("OK\n", context, false);
+                String responseString = "OK\n";
+                if (request instanceof XdnGetProtocolRoleRequest xdnGetProtocolRoleRequest) {
+                    responseString = xdnGetProtocolRoleRequest.getJsonResponse();
+                }
+                sendStringResponse(responseString, context, false);
             });
         }
 
@@ -628,8 +641,31 @@ public class HttpActiveReplica {
             }
         }
 
-        private static void writeHttpResponse(HttpResponse httpResponse, ChannelHandlerContext ctx,
+        private static void writeHttpResponse(Long requestId, HttpResponse httpResponse,
+                                              ChannelHandlerContext ctx,
                                               boolean isKeepAlive, long startProcessingTime) {
+            assert requestId != null;
+            if (httpResponse == null) {
+                logger.log(Level.WARNING,
+                        String.format("%s:%s - ignoring empty HTTP response (id: %d)",
+                                nodeId, HttpActiveReplica.class.getSimpleName(), requestId));
+                return;
+            }
+
+            // Observability: logging post-execution time.
+            String postExecTimestampHeaderKey = String.format("X-E-EXC-TS-%s", nodeId);
+            String postExecTimestampStr = httpResponse.headers().get(postExecTimestampHeaderKey);
+            if (postExecTimestampStr != null) {
+                long postExecTimestamp = Long.parseLong(postExecTimestampStr);
+                long postExecElapsedTime = System.nanoTime() - postExecTimestamp;
+                logger.log(Level.FINE, "{0}:{1} - HTTP post-execution over {2}ms",
+                        new Object[]{
+                                nodeId,
+                                HttpActiveReplica.class.getSimpleName(),
+                                (postExecElapsedTime / 1_000_000.0)});
+                httpResponse.headers().remove(postExecTimestampHeaderKey);
+            }
+
             if (isKeepAlive) {
                 httpResponse.headers().set(
                         HttpHeaderNames.CONNECTION,
@@ -651,22 +687,12 @@ public class HttpActiveReplica {
             });
 
             long elapsedTime = System.nanoTime() - startProcessingTime;
-            logger.log(Level.FINE, "{0}:{1} - HTTP execution within {2}ms",
+            logger.log(Level.FINE, "{0}:{1} - Overall HTTP execution within {2}ms (id: {3})",
                     new Object[]{
                             nodeId,
                             HttpActiveReplica.class.getSimpleName(),
-                            (elapsedTime / 1_000_000.0)});
-
-            String postExecTimestampStr = httpResponse.headers().get("X-E-EXC-TS-" + nodeId);
-            if (postExecTimestampStr != null) {
-                long postExecTimestamp = Long.parseLong(postExecTimestampStr);
-                long postExecElapsedTime = System.nanoTime() - postExecTimestamp;
-                logger.log(Level.FINE, "{0}:{1} - HTTP post-execution over {2}ms",
-                        new Object[]{
-                                nodeId,
-                                HttpActiveReplica.class.getSimpleName(),
-                                (postExecElapsedTime / 1_000_000.0)});
-            }
+                            (elapsedTime / 1_000_000.0),
+                            String.valueOf(requestId)});
         }
 
         private boolean writeResponse(HttpObject currentObj, ChannelHandlerContext ctx) {
@@ -751,7 +777,8 @@ public class HttpActiveReplica {
                 if (httpResponse != null) {
                     isKeepAlive = isKeepAlive && HttpUtil.isKeepAlive(httpResponse);
                 }
-                writeHttpResponse(httpResponse, ctx, isKeepAlive, startProcessingTime);
+                writeHttpResponse(xdnRequest.getRequestID(), httpResponse,
+                        ctx, isKeepAlive, startProcessingTime);
 
                 // Asynchronously sends statistics to the control plane (i.e., RC).
                 InetAddress clientInetAddress = null;
