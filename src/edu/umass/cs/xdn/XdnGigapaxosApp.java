@@ -1441,9 +1441,11 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         String userSubCmd = "";
         int uid = Utils.getUid();
         int gid = Utils.getGid();
+        /*
         if (uid != 0 && this.recorderType == RecorderType.FUSELOG) {
             userSubCmd = String.format("--user=%d:%d", uid, gid);
         }
+        */
 
         // Run with arbitrary user if the container is stateful
         // Only been tested on PostgreSQL, MySQL, MariaDb
@@ -1479,6 +1481,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         assert targetPort != null;
         long endValidationTime = System.nanoTime();
 
+        /*
         // Log Endpoint Request
         io.netty.handler.codec.http.HttpRequest httpRequest = xdnRequest.getHttpRequest();
         String requestInfo = String.format("%s %s - %s:%d%s", 
@@ -1490,6 +1493,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         );
         Logger.getGlobal().log(Level.INFO, requestInfo);
         // System.out.println(requestInfo);
+        */
 
         String requestRcvTimestampStr =
                 xdnRequest.getHttpRequest().headers().get("X-S-EXC-TS-" + myNodeId);

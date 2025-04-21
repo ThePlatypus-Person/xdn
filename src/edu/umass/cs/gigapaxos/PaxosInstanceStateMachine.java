@@ -778,6 +778,10 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         if (!BATCHING_ENABLED
                 || request.getEntryReplica() == IntegerMap.NULL_INT_NODE
                 || request.isBroadcasted()) {
+            System.out.println(String.format(
+                "PaxosInstanceStateMachine.handleRequest(myID=%s) calls incrOutstanding()",
+                this.getMyID()
+            ));
             this.paxosManager.incrOutstanding(request);
         }
 
@@ -1071,10 +1075,21 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         if (instrument(10))
             DelayProfiler.updateMovAvg("#batched", accept.batchSize() + 1);
         if ((this.paxosState.getAccept(accept.slot) == null)
-                && (this.paxosState.getSlot() - accept.slot <= 0))
+                && (this.paxosState.getSlot() - accept.slot <= 0)) {
+
+            System.out.println(String.format(
+                "PaxosInstanceStateMachien.handleAccept(myID=%s) calls incrOutstanding()",
+                this.getMyID()
+            ));
+
             this.paxosManager.incrOutstanding(accept.addDebugInfoDeep("a")); // stats
+        }
 
         if (EXECUTE_UPON_ACCEPT) { // only for testing
+            System.out.println(String.format(
+                "PaxosInstanceStateMachine.handleAccept(myID=%d) calls execute()",
+                this.getMyID()
+            ));
             PaxosInstanceStateMachine.execute(this, getPaxosManager(),
                     this.getApp(), accept, false);
             if (Util.oneIn(10))
@@ -1582,6 +1597,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 	 * logger call this method is only space-efficient design alternative. */
 	protected/* synchronized */MessagingTask extractExecuteAndCheckpoint(
 			PValuePacket loggedDecision) {
+
 		long methodEntryTime = System.currentTimeMillis();
 		int execCount = 0;
 		PValuePacket inorderDecision = null;
@@ -1607,15 +1623,21 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 				/* Execute it until successful, we are *by design* stuck
 				 * otherwise. Execution must be atomic with extraction and
 				 * possible checkpointing below. */
-				if (!EXECUTE_UPON_ACCEPT) // used for testing
+				if (!EXECUTE_UPON_ACCEPT) { // used for testing
+                    System.out.println(String.format(
+                        "PaxosInstanceStateMachine.extractExecuteAndCheckpoint(myID=%d) calls execute()",
+                        this.getMyID()
+                    ));
 					if (execute(this, this.paxosManager, this.getApp(),
-							inorderDecision, inorderDecision.isRecovery()))
+							inorderDecision, inorderDecision.isRecovery())) {
 						// +1 for each batch, not for each constituent
 						// requestValue
 						execCount++;
 					// unclean kill
-					else if (this.forceStop())
+                    } else if (this.forceStop()) {
 						break;
+                    }
+                }
 
 				if (instrument(EXECUTION_LATENCY_SAMPLING))
 					DelayProfiler.updateDelay(AbstractPaxosLogger.appName
@@ -1723,9 +1745,26 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 		boolean shouldLog = instrument(5 * getCPI(
 				paxosManager.getInterCheckpointInterval(),
 				decision.getPaxosID()));
+            
+        RequestPacket[] decisions = decision.getRequestPackets();
+        String[] clientAddresses = Arrays.stream(decisions).map(
+            req -> ((req.getClientAddress() == null) ? "null" : req.getClientAddress().toString())
+        ).toArray(String[]::new);
+
+        System.out.println(String.format(
+                "PaxosInstanceStateMachine.execute() - Client Addresses: %s",
+                Arrays.toString(clientAddresses)
+            )
+        );
+            
 		for (RequestPacket requestPacket : decision.getRequestPackets()) {
 			boolean executed = false;
 			int retries = 0;
+
+            if (requestPacket.getClientAddress() == null) {
+                System.out.printf("PaxosInstanceStateMachine.execute() -- req.clientAddr=null\n");
+            }
+
 			do {
 				try {
 					/* Note: The conversion below is an important reason for
@@ -1768,6 +1807,18 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 									(recoveryMode || (requestPacket
 											.getEntryReplica() != paxosManager
 											.getMyID())));
+                    
+                    
+                    /*
+                    log.log(Level.INFO, String.format(
+                                "[isRecoveryMode: %b], [packetReplica: %d], [paxosManagerReplica: %d]", 
+                                recoveryMode,
+                                requestPacket.getEntryReplica(),
+                                paxosManager.getMyID()
+                        )
+                    );
+                    */
+
 					paxosManager.executed(requestPacket,
 							request,
 							// send response if entry replica and !recovery

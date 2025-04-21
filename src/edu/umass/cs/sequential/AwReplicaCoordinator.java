@@ -66,9 +66,6 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
 		// prepare the updated callback that log the coordination duration
 		long startProcessingTime = System.nanoTime();
 
-        // logger.log(Level.INFO, String.format(">> %s:AwReplicaCoordinator -- coordinateRequest %s\n",
-        // this.myNodeID, request));
-    
         if (!(request instanceof ReplicableClientRequest rcr)) {
             throw new RuntimeException("Unknown request/packet handled by AwReplicaCoordinator " +
                     request.getRequestType());
@@ -84,7 +81,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
                 // Log Time
                 long elapsedTime = System.nanoTime() - startProcessingTime;
                 String timeLog = String.format(
-                    "%50s %6.3fs", 
+                    "%50s %6.3fs\n", 
                     "AwReplicaCoordinator.coordinateRequest()",
                     elapsedTime / 1000_000_000.0
                 );
@@ -94,11 +91,17 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
 
         String requestLogText = "";
         if (clientRequest instanceof XdnHttpRequest xdnHttpRequest) {
-            requestLogText = xdnHttpRequest.getLogText();
+            io.netty.handler.codec.http.HttpRequest httpRequest = xdnHttpRequest.getHttpRequest();
+            requestLogText = String.format("%s - %s:%s", 
+                httpRequest.method().toString(), 
+                serviceName,
+                httpRequest.uri()
+            );
+
         } else {
             requestLogText = clientRequest.getRequestType().toString();
         }
-        logger.log(Level.INFO, String.format("%s:AwReplicaCoordinator -- coordinateRequest %s\n",
+        logger.log(Level.INFO, String.format("%s:AwReplicaCoordinator -- coordinateRequest %s",
                 this.myNodeID, requestLogText));
 
         // We handle read-only request locally, with no coordination.
@@ -126,6 +129,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         // Most requests, especially write-only and read-modify-write requests need to
         // be coordinated. Note that the code below is asynchronous, we wait for the
         // coordination confirmation before returning to client.
+        System.out.println("propose() POST/PUT/DEL Request");
         this.paxosManager.propose(serviceName, clientRequest, loggedCallback);
 
         return true;

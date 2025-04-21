@@ -733,7 +733,6 @@ public class NIOTransport<NodeIDType> implements Runnable, HandshakeCallback {
 	 * destination's InetSocketAddress, which would not be the same as the
 	 * remote address of the socket channel just established. */
 	private void accept(SelectionKey key) throws IOException {
-
 		// For an accept to be pending the channel must be a server socket
 		// channel.
 		ServerSocketChannel serverSocketChannel = (ServerSocketChannel) key

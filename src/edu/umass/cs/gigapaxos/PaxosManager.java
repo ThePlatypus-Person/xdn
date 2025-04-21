@@ -138,6 +138,7 @@ public class PaxosManager<NodeIDType> {
     private class Outstanding {
         int totalRequestSize = 0;
         long lastIncremented = System.currentTimeMillis();
+
         ConcurrentHashMap<Long, RequestAndCallback> requests = USE_GC_MAP ? new GCConcurrentHashMap<Long, RequestAndCallback>(
                 new GCConcurrentHashMapCallback() {
                     @Override
@@ -159,17 +160,54 @@ public class PaxosManager<NodeIDType> {
             assert (rc.requestPacket.getType() != PaxosPacketType.ACCEPT || rc.requestPacket
                     .hasRequestValue());
             RequestAndCallback prev = null;
+
             synchronized (this.requests) {
-                if ((prev = this.requests.putIfAbsent(rc.requestPacket.requestID, rc)) == null)
+                // Logging
+                String logOutput = String.format(
+                    "enqueue(myID=%s) - putIfAbsent(clientAddr=%s)\n", 
+                    myID,
+                    ((rc.requestPacket.getClientAddress() == null) ? "null" 
+                     : rc.requestPacket.getClientAddress().toString())
+                );
+                System.out.print(logOutput);
+
+                // Core Function
+                prev = this.requests.putIfAbsent(rc.requestPacket.requestID, rc);
+                Boolean prevIsNull = (prev == null);
+                Boolean rcReqEqualsPrevReq = !prevIsNull && rc.requestPacket.equals(prev.requestPacket);
+                Boolean rcReqIsAcceptPacket = (rc.requestPacket instanceof AcceptPacket);
+                Boolean rcCallbackIsNull = (rc.callback == null);
+                String runningProcess = "this.requests.putIfAbsent()";
+
+                if (prevIsNull) {
                     totalRequestSize += rc.requestPacket.lengthEstimate();
-                else if (!rc.requestPacket.equals(prev.requestPacket)) {
+                    runningProcess = "totalRequestSize += rc.requestPacket.lengthEstimate()";
+                } else if (!rcReqEqualsPrevReq) {
                     // just skip accept packets
-                    if (!(rc.requestPacket instanceof AcceptPacket))
+                    if (!rcReqIsAcceptPacket) {
                         // insert in overflow
+                        runningProcess = "this.conflictIDRequests.put(()";
                         this.conflictIDRequests.put(rc.requestPacket, rc);
+                    } else {
+                        runningProcess = "just skip accept packets";
+                    }
+                } else if (!rcCallbackIsNull) {
+                    // replace callback if equal request
+                    this.requests.put(rc.requestPacket.requestID, rc);
+                    runningProcess = "this.requests.put() - replace callback if equal request";
                 }
-                // replace callback if equal request
-                else if (rc.callback != null) this.requests.put(rc.requestPacket.requestID, rc);
+
+
+                logOutput = String.format(
+                    "%s\t>> [%b] %s\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> [RUN] %s\n", 
+                    logOutput,
+                    prevIsNull, "prev == null", 
+                    rcReqEqualsPrevReq, "rc.requestPacket == prev.requestPacket",
+                    rcReqIsAcceptPacket, "rc.requestPacket instanceof AcceptPacket",
+                    rcCallbackIsNull, "rc.callback == null",
+                    runningProcess
+                );
+                // System.out.print(logOutput);
             }
             this.lastIncremented = System.currentTimeMillis();
         }
@@ -177,10 +215,38 @@ public class PaxosManager<NodeIDType> {
         // called by executed callback
         private RequestAndCallback dequeue(RequestPacket request) {
             RequestAndCallback queued = this.requests.get(request.requestID);
-            if (queued != null && queued.requestPacket.equals(request))
+            
+            String logOutput = String.format(
+                "dequeue(myID=%s, requestID=%d) - entryReplica=%d\n", 
+                myID, request.requestID, request.getEntryReplica()
+            );
+
+            Boolean queuedNull = (queued == null);
+            logOutput = String.format("%s\t>> [%b] %s\n", logOutput,
+                queuedNull, "queued == null"
+            );
+
+            // System.out.println("dequeue() calls queued.requestPacket.equals()");
+            Boolean queuedEqualsRequest = queued.requestPacket.equals(request);
+            logOutput = String.format("%s\t>> [%b] %s\n\t>> %s = %s\n\t>> %s = %s\n", logOutput,
+                queuedEqualsRequest, "queued.requestPacket.equals(request)",
+                "queued.clientAddress", ((queued.requestPacket.getClientAddress() == null) ? "null" : queued.requestPacket.getClientAddress().toString()),
+                "request.clientAddress", ((request.getClientAddress() == null) ? "null" : request.getClientAddress().toString())
+            );
+
+            if (!queuedNull && queuedEqualsRequest) {
+                logOutput = String.format("%s\t>> [RUN] %s\n", logOutput,
+                    "requests.remove(request.requestID)"
+                );
+                System.out.print(logOutput);
                 return this.requests.remove(request.requestID);
-            else
+            } else {
+                logOutput = String.format("%s\t>> [RUN] %s\n", logOutput,
+                    "conflictIDRequests.remove(request)"
+                );
+                System.out.print(logOutput);
                 return this.conflictIDRequests.remove(request);
+            }
         }
 
         private long generateUnusedID() {
@@ -225,10 +291,16 @@ public class PaxosManager<NodeIDType> {
 
     // default callback tries to send back response
     private void defaultCallback(Request response, InetSocketAddress clientAddress, InetSocketAddress listenAddress) {
-        if (response == null || !(response instanceof ClientRequest))
+        PaxosConfig.log.log(Level.INFO, "PaxosManager.defaultCallback()");
+
+        if (response == null || !(response instanceof ClientRequest)) {
+            System.out.println("Response is null");
             return;
+        }
+
         // waiting for others to remove this method
         if (clientAddress != null && response != null && !NO_RESPONSE) {
+            System.out.println("Sending response back to client...");
             try {
                 this.send(clientAddress, response,
                         listenAddress);
@@ -259,21 +331,40 @@ public class PaxosManager<NodeIDType> {
     // called by PaxosInstanceStateMachine as execute callback
     protected boolean executed(RequestPacket requestPacket, Request request,
                                boolean sendResponse) {
+        PaxosConfig.log.log(Level.INFO, String.format("PaxosManager.executed(myID=%d, sendResponse=%b)", myID, sendResponse));
+
+        System.out.println("[]==[] executed() calls dequeue()");
+
         RequestAndCallback rc = this.outstanding.dequeue(requestPacket);
+        Boolean rcIsNull = (rc == null);
+        Boolean cbIsNull = !rcIsNull && (rc.callback == null);
+
+        String statusLog = String.format(
+                "[]==[] Back to executed() from dequeue()\n\t>> [%b] rc == null\n\t>> [%b] rc.callback == null\n\t>> [RUN] %s\n", 
+                rcIsNull,
+                cbIsNull,
+                (!rcIsNull && !cbIsNull) ? "rc.callback.executed()" : "this.defaultCallback()"
+        );
+
+        System.out.println(statusLog);
+
         if (rc != null)
             this.outstanding.totalRequestSize -= rc.requestPacket.lengthEstimate();
         RequestInstrumenter.remove(requestPacket.requestID);
+
         // cache response
         if (ENABLE_RESPONSE_CACHING && request instanceof ClientRequest)
             this.outstanding.responses.put(requestPacket,
                     new RequestResponseAndCallback(requestPacket,
                             ((ClientRequest) request),
                             rc != null ? rc.callback : null));
+
         // only called if executed
-        if (rc != null && rc.callback != null)
+        if (rc != null && rc.callback != null) {
             rc.callback.executed(request, true);
-        else if (sendResponse)
+        } else if (sendResponse) {
             this.defaultCallback(requestPacket, request);
+        }
         assert (requestPacket.batchSize() == 0);
         return rc != null;
     }
@@ -1007,8 +1098,14 @@ public class PaxosManager<NodeIDType> {
                 this.handleIncomingPacket(packet);
         else if (BATCHING_ENABLED)
             this.enqueueRequest(pp);
-        else
+        else {
+            /*
+            System.out.println(String.format(
+                "PaxosManager.handleIncomingPacket(myID=%s) calls handlePaxosPacket()", this.myID
+            ));
+            */
             this.handlePaxosPacket(pp);
+        }
     }
 
     /* If RequestPacket, hand over to batcher that will then call
@@ -1084,6 +1181,9 @@ public class PaxosManager<NodeIDType> {
                         //In the single node case, on receiving an ACCEPT_REPLY message,
                         // we handle the ACCEPT_REPLY and the subsequent DECISION
                         // message in a separate thread pool, instead of AbstractPaxosLogger.
+                        System.out.println(String.format(
+                            "PaxosManager.handlePaxosPacket(myID=%s) calls pism.handlePaxosMessage()", this.myID
+                        ));
                         if (msgType.equals(PaxosPacket.PaxosPacketType.ACCEPT_REPLY)
                                 && pism.getMembers().length == 1) {
                             this.appExecuteThreadPool.execute(new Runnable() {
@@ -1130,6 +1230,7 @@ public class PaxosManager<NodeIDType> {
 
         boolean matched = false;
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
+
         if (pism != null) {
             matched = true;
             requestPacket.putPaxosID(paxosID, pism.getVersion());
@@ -1137,6 +1238,14 @@ public class PaxosManager<NodeIDType> {
             PaxosConfig.log.log(Level.FINE, "{0} proposing to {1}: {2}",
                     new Object[]{this, pism.getPaxosIDVersion(),
                             requestPacket.getSummary()});
+
+            System.out.println(String.format(
+                "PaxosManager.propose(clientAddr=%s, myID=%s) calls enqueue()",
+                ((requestPacket.getClientAddress() == null) ? "null" 
+                 : requestPacket.getClientAddress().toString()),
+                this.myID
+            ));
+
             this.outstanding.enqueue(new RequestAndCallback(requestPacket,
                     callback));
             this.handleIncomingPacket(requestPacket);
@@ -1505,13 +1614,26 @@ public class PaxosManager<NodeIDType> {
     // queue of outstanding requests
     protected void incrOutstanding(RequestPacket request) {
         request.setEntryReplicaAndReturnCount(this.myID);
+        int enqueueCount = 1;
 
         // if (request.getEntryReplica() == getMyID())
+        System.out.println(String.format(
+            "PaxosManager.incrOutstanding(myID=%s) calls enqueue(clientAddr=%s)",
+            this.myID, 
+            ((request.getClientAddress() == null) ? "null" 
+             : request.getClientAddress().toString())
+        ));
         this.outstanding.enqueue(new RequestAndCallback(request, null));
         if (request.batchSize() > 0)
-            for (RequestPacket req : request.getBatched())
+            for (RequestPacket req : request.getBatched()) {
+                enqueueCount++;
                 // if (request.getEntryReplica() == getMyID())
+                System.out.println(String.format(
+                    "PaxosManager.incrOutstanding(myID=%s) calls enqueue(count=%d)",
+                    this.myID, enqueueCount
+                ));
                 this.outstanding.enqueue(new RequestAndCallback(req, null));
+            }
         if (Util.oneIn(10))
             DelayProfiler.updateMovAvg("outstanding",
                     this.outstanding.requests.size());

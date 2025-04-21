@@ -1484,7 +1484,51 @@ public class RequestPacket extends PaxosPacket implements Request,
 	@Override
 	public boolean equals(Object obj) {
 		RequestPacket req = null;
-		return
+
+        Boolean isRequestPacketInstance = obj instanceof RequestPacket && ((req = (RequestPacket) obj) != null);
+        Boolean requestIdMatch = this.requestID == req.requestID;
+        Boolean paxosIdMatch = this.getPaxosID().equals(req.getPaxosID());
+        Boolean clientAddrMatch = (
+                this.clientAddress==req.clientAddress 
+                || this.clientAddress!=null 
+                && this.clientAddress.equals(req.clientAddress)
+        );
+        Boolean reqValOrDigMatch =  (
+            !enforceRequestValueMatch 
+            || this.requestValue != null 
+            && this.requestValue.equals(req.requestValue)
+            || (this.digestEquals(req, getMessageDigest()) || logAnomaly(this, req))
+        );
+
+        /*
+        String logOutput = String.format(
+            "========== BEGIN ==========\n\t>> %s = %s\n\t>> %s = %s\n",
+            "this.clientAddress", ((this.clientAddress == null) ? "null" : this.clientAddress.getAddress().toString()),
+            "req.clientAddress", ((req.clientAddress == null) ? "null" : req.clientAddress.getAddress().toString())
+        );
+        System.out.printf("%s========== END ==========\n", logOutput);
+        */
+
+        /*
+        String logOutput = String.format(
+            "========== BEGIN ==========\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> [%b] %s\n\t>> %s = %s\n\t>> %s = %s\n",
+            isRequestPacketInstance, "Is RequestPacket instance",
+            requestIdMatch, "request IDs match",
+            paxosIdMatch, "paxosIDs match",
+            clientAddrMatch, "client addresses match",
+            reqValOrDigMatch, "request values or digests match (disabled by default)",
+            "this.clientAddress", ((this.clientAddress == null) ? "null" : this.clientAddress.getAddress().toString()),
+            "req.clientAddress", ((req.clientAddress == null) ? "null" : req.clientAddress.getAddress().toString())
+        );
+        System.out.printf("%s========== END ==========\n", logOutput);
+        */
+
+		return isRequestPacketInstance
+            && requestIdMatch
+            && paxosIdMatch
+            && clientAddrMatch
+            && reqValOrDigMatch;
+            /*
 		// RequestPacket instance
 		obj instanceof RequestPacket
 				&& ((req = (RequestPacket) obj) != null)
@@ -1506,6 +1550,7 @@ public class RequestPacket extends PaxosPacket implements Request,
 						this, req))
 
 				);
+            */
 	}
 
 

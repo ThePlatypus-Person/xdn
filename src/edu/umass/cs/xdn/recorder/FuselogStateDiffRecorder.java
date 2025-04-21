@@ -186,8 +186,11 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
             System.err.println("failed to read size of the stateDiff");
             return null;
         }
+
         long stateDiffSize = sizeBuffer.getLong(0);
+        
         System.out.println(">> stateDiff size=" + stateDiffSize);
+        assert stateDiffSize >= 0 : String.format(" stateDiffSize %d is less than zero.", stateDiffSize);
 
         // read all the stateDiff
         ByteBuffer stateDiffBuffer = ByteBuffer.allocate((int) stateDiffSize);
@@ -201,7 +204,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         }
         System.out.println(">> complete reading stateDiff ...");
         String stateDiff = Base64.getEncoder().encodeToString(stateDiffBuffer.array());
-        System.out.println(">> read stateDiff: " + stateDiff);
+        // System.out.println(">> read stateDiff: " + stateDiff);
 
         // convert the stateDiff into String
         return stateDiff;
