@@ -114,7 +114,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         }
 
         // Nil-external request is coordinated, but without waiting for the coordination
-        // confirmation. We directly acknowledge back to the client.
+        // confirmation. We directly acknowledge back to rcr client.
         // This implementation refers to the "Sequential Consistency versus Linearizability" paper,
         // specifically for Enqueue and Push operation in FIFO Queue and Stack, respectively.
         if (clientRequest instanceof BehavioralRequest br && br.isMonotonicRequest()) {
@@ -129,8 +129,8 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         // Most requests, especially write-only and read-modify-write requests need to
         // be coordinated. Note that the code below is asynchronous, we wait for the
         // coordination confirmation before returning to client.
-        System.out.println("propose() POST/PUT/DEL Request");
-        this.paxosManager.propose(serviceName, clientRequest, loggedCallback);
+        //System.out.println("propose() POST/PUT/DEL Request");
+        this.paxosManager.propose(serviceName, rcr, loggedCallback);
 
         return true;
     }

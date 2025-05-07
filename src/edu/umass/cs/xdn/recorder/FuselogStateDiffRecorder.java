@@ -248,4 +248,18 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         assert rmRetCode == 0;
         return true;
     }
+
+    /**********************************************************************************************
+     *                                  Backup Test methods                                     *
+     *********************************************************************************************/
+
+    @Override
+    public String getDefaultBasePath() {
+        return this.defaultWorkingBasePath;
+    }
+
+    /**********************************************************************************************
+     *                                  End Backup Test methods                                 *
+     *********************************************************************************************/
+
 }

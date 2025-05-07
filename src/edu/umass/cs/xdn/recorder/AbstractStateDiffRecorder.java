@@ -23,4 +23,6 @@ public abstract class AbstractStateDiffRecorder {
 
     abstract public boolean removeServiceRecorder(String serviceName, int placementEpoch);
 
+    // Backup Test Methods
+    abstract public String getDefaultBasePath();
 }

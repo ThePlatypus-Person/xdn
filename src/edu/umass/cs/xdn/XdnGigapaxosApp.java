@@ -46,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableApplication,
         InitialStateValidator {
@@ -561,6 +562,11 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         String stateDirMountSource = stateDiffRecorder.getTargetDirectory(
                 serviceName, initialPlacementEpoch);
         String stateDirMountTarget = property.getStatefulComponentDirectory();
+
+        System.out.println(String.format(
+            ">>> serviceName: %s\n>>> stateDirMountSource: %s\n>>> stateDirMountTarget: %s",
+            serviceName, stateDirMountSource, stateDirMountTarget
+        ));
 
         stateDiffRecorder.preInitialization(serviceName, initialPlacementEpoch);
 
@@ -1684,4 +1690,83 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *                                  End utility methods                                     *
      *********************************************************************************************/
 
+    /**********************************************************************************************
+     *                                  Backup Test methods                                     *
+     *********************************************************************************************/
+    public String getRecorderType() {
+        switch (this.recorderType) {
+            case RecorderType.RSYNC:
+                return "rsync";
+            case RecorderType.ZIP:
+                return "zip";
+            case RecorderType.FUSELOG:
+                return "fuselog";
+            default:
+                return "unknown type";
+        }
+    }
+
+    // This function is only called by the primary replica
+    public void multiFileInit(Set<String> backupNodes, String serviceName) {
+        switch (this.recorderType) {
+            case RecorderType.RSYNC:
+                break;
+            case RecorderType.ZIP:
+                System.out.println("Multi-file initialization is not supported on Zip.");
+                return;
+            case RecorderType.FUSELOG:
+                System.out.println("Multi-file initialization is not supported on Fuselog.");
+                return;
+            default:
+                System.out.println("Unknown recorderType. Cannot perform Multi-file initialization.");
+                return;
+        }
+
+        System.out.println(">> Handling non-deterministic service");
+        String defaultWorkingBasePath = this.stateDiffRecorder.getDefaultBasePath();
+        String currentReplica = String.format("%s%s/", defaultWorkingBasePath, this.myNodeId);
+
+        List<String> backupReplicas = backupNodes.stream()
+            .map(node -> String.format("%s%s/", defaultWorkingBasePath, node))
+            .collect(Collectors.toList());
+
+        System.out.println("Primary: " + currentReplica);
+        System.out.println("Backups: " + backupReplicas);
+
+        String mntDir = String.format("mnt/%s/", serviceName);
+        String snpDir = String.format("snp/%s/", serviceName);
+        String diffDir = String.format("diff/%s/", serviceName);
+
+        int exitCode = Shell.runCommand(String.format(
+            "rsync -avz --delete --human-readable %s/%s %s/%s",
+            currentReplica, mntDir, currentReplica, snpDir
+        ), false);
+        if (exitCode != 0) {
+            System.out.println(String.format("Failed to sync /mnt/ to /snp/ in %s", currentReplica));
+        }
+           
+        // Copy data to other replicas
+        for (String backupReplica: backupReplicas) {
+            exitCode = Shell.runCommand(String.format("""
+                rsync -avz --delete --human-readable \
+                --include='mnt/' --include='%s' --include='%s***' \
+                --include='snp/' --include='%s' --include='%s***' \
+                --include='diff/' --include='%s' --include='%s***' \
+                --exclude='*' \
+                %s %s""",
+                mntDir, mntDir, snpDir, snpDir, diffDir, diffDir,
+                currentReplica, backupReplica
+            ), false);
+
+            if (exitCode != 0) {
+                System.out.println(String.format(
+                    "Failed to sync %s to %s", currentReplica, backupReplica
+                ));
+            }
+        }
+    }
+
+    /**********************************************************************************************
+     *                                  End Backup Test methods                                 *
+     *********************************************************************************************/
 }

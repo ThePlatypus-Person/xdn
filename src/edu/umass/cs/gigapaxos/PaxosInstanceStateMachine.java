@@ -778,10 +778,12 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         if (!BATCHING_ENABLED
                 || request.getEntryReplica() == IntegerMap.NULL_INT_NODE
                 || request.isBroadcasted()) {
+            /*
             System.out.println(String.format(
                 "PaxosInstanceStateMachine.handleRequest(myID=%s) calls incrOutstanding()",
                 this.getMyID()
             ));
+            */
             this.paxosManager.incrOutstanding(request);
         }
 
@@ -1077,19 +1079,23 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         if ((this.paxosState.getAccept(accept.slot) == null)
                 && (this.paxosState.getSlot() - accept.slot <= 0)) {
 
+            /*
             System.out.println(String.format(
                 "PaxosInstanceStateMachien.handleAccept(myID=%s) calls incrOutstanding()",
                 this.getMyID()
             ));
+            */
 
             this.paxosManager.incrOutstanding(accept.addDebugInfoDeep("a")); // stats
         }
 
         if (EXECUTE_UPON_ACCEPT) { // only for testing
+            /*
             System.out.println(String.format(
                 "PaxosInstanceStateMachine.handleAccept(myID=%d) calls execute()",
                 this.getMyID()
             ));
+            */ 
             PaxosInstanceStateMachine.execute(this, getPaxosManager(),
                     this.getApp(), accept, false);
             if (Util.oneIn(10))
@@ -1624,10 +1630,12 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 				 * otherwise. Execution must be atomic with extraction and
 				 * possible checkpointing below. */
 				if (!EXECUTE_UPON_ACCEPT) { // used for testing
+                    /*
                     System.out.println(String.format(
                         "PaxosInstanceStateMachine.extractExecuteAndCheckpoint(myID=%d) calls execute()",
                         this.getMyID()
                     ));
+                    */
 					if (execute(this, this.paxosManager, this.getApp(),
 							inorderDecision, inorderDecision.isRecovery())) {
 						// +1 for each batch, not for each constituent
@@ -1751,19 +1759,23 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
             req -> ((req.getClientAddress() == null) ? "null" : req.getClientAddress().toString())
         ).toArray(String[]::new);
 
+        /*
         System.out.println(String.format(
                 "PaxosInstanceStateMachine.execute() - Client Addresses: %s",
                 Arrays.toString(clientAddresses)
             )
         );
+        */
             
 		for (RequestPacket requestPacket : decision.getRequestPackets()) {
 			boolean executed = false;
 			int retries = 0;
 
+            /*
             if (requestPacket.getClientAddress() == null) {
                 System.out.printf("PaxosInstanceStateMachine.execute() -- req.clientAddr=null\n");
             }
+            */
 
 			do {
 				try {

@@ -16,6 +16,8 @@ import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientReque
 import edu.umass.cs.reconfiguration.reconfigurationutils.AbstractDemandProfile;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
 import edu.umass.cs.utils.Config;
+import edu.umass.cs.xdn.utils.Shell;
+import edu.umass.cs.xdn.XdnGigapaxosApp;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -27,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
@@ -178,33 +181,39 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
         // RequestPacket: client -> entry replica
         if (packet instanceof RequestPacket requestPacket) {
+            System.out.println(String.format("PBManager-%s RequestPacket: client -> entry replica", myNodeID));
             return handleRequestPacket(requestPacket, callback);
         }
 
         // ForwardedRequestPacket: entry replica -> primary
         if (packet instanceof ForwardedRequestPacket forwardedRequestPacket) {
+            System.out.println(String.format("PBManager-%s ForwardedRequestPacket: entry replica -> primary", myNodeID));
             return handleForwardedRequestPacket(forwardedRequestPacket, callback);
         }
 
         // ResponsePacket: primary -> entry replica
         if (packet instanceof ResponsePacket responsePacket) {
+            System.out.println(String.format("PBManager-%s ResponsePacket: primary -> entry replica", myNodeID));
             return handleResponsePacket(responsePacket, callback);
         }
 
         // ChangePrimaryPacket: client -> entry replica
         if (packet instanceof ChangePrimaryPacket changePrimaryPacket) {
+            System.out.println(String.format("PBManager-%s ChangePrimaryPacket: client -> entry replica", myNodeID));
             return handleChangePrimaryPacket(changePrimaryPacket, callback);
         }
 
         // ApplyStateDiffPacket: primary -> replica
         // only executed by XDNGigapaxosApp
         if (packet instanceof ApplyStateDiffPacket applyStateDiffPacket) {
+            System.out.println(String.format("PBManager-%s ApplyStateDiffPacket: primary -> replica", myNodeID));
             return executeApplyStateDiffPacket(applyStateDiffPacket);
         }
 
         // StartEpochPacket: primary candidate -> replica
         // only executed by XDNGigapaxosApp
         if (packet instanceof StartEpochPacket startEpochPacket) {
+            System.out.println(String.format("PBManager-%s StartEpochPacket: primary candidate -> replica", myNodeID));
             return executeStartEpochPacket(startEpochPacket);
         }
 
@@ -660,6 +669,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         "groupName: %s, placementEpoch: %d, initialState: %s, nodes: %s\n",
                 myNodeID, groupName, placementEpoch, initialState, nodes.toString());
 
+        // this.paxosMiddlewareApp = XdnGigapaxosApp
         boolean created = this.paxosManager.createPaxosInstanceForcibly(
                 groupName, placementEpoch, nodes, this.paxosMiddlewareApp, initialState, 0);
         boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
@@ -690,7 +700,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return true;
         }
 
-        boolean isInitializationSuccess = initializePrimaryEpoch(groupName);
+        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes);
         if (!isInitializationSuccess) {
             System.out.printf("Failed to initialize replica group for %s\n", groupName);
             return false;
@@ -746,6 +756,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         currentPrimary.put(groupName, this.myNodeID);
                         currentPrimaryEpoch.put(groupName, zero);
                         processOutstandingRequests();
+
                     }
             );
 
@@ -756,7 +767,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         return true;
     }
 
-    private boolean initializePrimaryEpoch(String groupName) {
+    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes) {
         this.currentRole.put(groupName, Role.BACKUP);
         NodeIDType paxosCoordinatorID = this.paxosManager.getPaxosCoordinator(groupName);
         if (paxosCoordinatorID == null) {
@@ -770,16 +781,53 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             this.currentPrimaryEpoch.put(groupName, zero);
             StartEpochPacket startPacket = new StartEpochPacket(groupName, zero);
             this.paxosManager.propose(
-                    groupName,
-                    startPacket,
-                    (proposedPacket, isHandled) -> {
-                        System.out.printf("\n\n>> %s I'M THE PRIMARY NOW FOR %s!!\n\n",
-                                myNodeID, groupName);
-                        currentRole.put(groupName, Role.PRIMARY);
-                        currentPrimary.put(groupName, paxosCoordinatorID);
-                        currentPrimaryEpoch.put(groupName, zero);
-                        processOutstandingRequests();
+                groupName,
+                startPacket,
+                (proposedPacket, isHandled) -> {
+                    System.out.printf(
+                        "\n\n>> %s I'M THE PRIMARY NOW FOR %s!!\n\n",
+                        myNodeID, groupName
+                    );
+
+                    currentRole.put(groupName, Role.PRIMARY);
+                    currentPrimary.put(groupName, paxosCoordinatorID);
+                    currentPrimaryEpoch.put(groupName, zero);
+                    processOutstandingRequests();
+
+                    if (this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp) {
+                        PrimaryBackupMiddlewareApp middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
+
+                        if (middleware.getReplicableApp() instanceof XdnGigapaxosApp) {
+                            XdnGigapaxosApp xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
+                            System.out.println("YES YES YES YES");
+
+                            System.out.println(">> Handling non-deterministic service");
+                            Set<String> backupNodes = nodes.stream()
+                                .map(String::valueOf)
+                                .filter(node -> !node.equals(this.myNodeID.toString()))
+                                .map(String::toLowerCase)
+                                .collect(Collectors.toSet());
+
+                            System.out.println(String.format(
+                                "\n>>> %s is the Primary for %s. Timeout for 30 seconds to wait for database to initialize...\n",
+                                this.myNodeID.toString(), groupName
+                            ));
+
+                            try {
+                                // Wait for database to initialize
+                                Thread.sleep(30000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+
+                            xdnApp.multiFileInit(backupNodes, groupName);
+                            System.out.println("\n>>> Multi-file Initialization finished\n");
+                            // System.out.println(backupNodes);
+                            // System.out.println(xdnApp.getRecorderType());
+                        }
+
                     }
+                }
             );
         }
 

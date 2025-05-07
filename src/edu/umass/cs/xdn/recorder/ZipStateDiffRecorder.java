@@ -211,4 +211,17 @@ public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
         assert code == 0;
         return true;
     }
+
+    /**********************************************************************************************
+     *                                  Backup Test methods                                     *
+     *********************************************************************************************/
+
+    @Override
+    public String getDefaultBasePath() {
+        return this.defaultWorkingBasePath;
+    }
+
+    /**********************************************************************************************
+     *                                  End Backup Test methods                                 *
+     *********************************************************************************************/
 }

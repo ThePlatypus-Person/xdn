@@ -314,16 +314,25 @@ public abstract class ReconfigurableNode<NodeIDType> {
                         + nodeConfig.getNodePort(myID));
         MessageNIOTransport<NodeIDType, JSONObject> niot = null;
         InetSocketAddress isa = new InetSocketAddress(
-                nodeConfig.getNodeAddress(myID), nodeConfig.getNodePort(myID));
+                nodeConfig.getNodeAddress(myID), nodeConfig.getNodePort(myID)
+        );
+
         // else we have something to start
         messenger = (new JSONMessenger<NodeIDType>(
                 (niot = new MessageNIOTransport<NodeIDType, JSONObject>(
                         ReconfigurableNode.this.myID,
                         nodeConfig,
                         (pd = new ReconfigurationPacketDemultiplexer(nodeConfig)
-                                .setThreadName(ReconfigurableNode.this.myID
-                                        .toString())), true,
-                        ReconfigurationConfig.getServerSSLMode()))));
+                                .setThreadName(
+                                    ReconfigurableNode.this.myID.toString()
+                                )
+                        ), 
+                        true,
+                        ReconfigurationConfig.getServerSSLMode())
+                 )
+            )
+        );
+
         if (!niot.getListeningSocketAddress().equals(isa)
                 && Config.getGlobalBoolean(PC.STRICT_ADDRESS_CHECKS)) {
             ReconfigurationConfig
@@ -339,8 +348,12 @@ public abstract class ReconfigurableNode<NodeIDType> {
             AbstractReplicaCoordinator<NodeIDType> app = null;
             // create active
             ActiveReplica<NodeIDType> activeReplica = new ActiveReplica<NodeIDType>(
-                    // createAppCoordinator(),
-                    app = createApp(args, nodeConfig), nodeConfig, messenger);
+                // createAppCoordinator(),
+                app = createApp(args, nodeConfig), 
+                nodeConfig, 
+                messenger
+            );
+
             this.activeReplicas.add(activeReplica);
             // getPacketTypes includes app's packets
             pd.setAppRequestParser(app).register(activeReplica.getPacketTypes(), activeReplica);

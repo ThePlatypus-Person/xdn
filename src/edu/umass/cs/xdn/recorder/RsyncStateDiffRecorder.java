@@ -201,7 +201,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         // apply the stateDiff inside the .diff file using rsync
         String command = String.format("%s -ar --read-batch=%s %s",
                 RSYNC_BIN_PATH, targetDiffFile, targetDir);
-        retCode = Shell.runCommand(command);
+        retCode = Shell.runCommand(command, false);
         assert retCode == 0;
 
         return true;
@@ -214,4 +214,17 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         assert retCode == 0;
         return true;
     }
+
+    /**********************************************************************************************
+     *                                  Backup Test methods                                     *
+     *********************************************************************************************/
+
+    @Override
+    public String getDefaultBasePath() {
+        return this.defaultWorkingBasePath;
+    }
+
+    /**********************************************************************************************
+     *                                  End Backup Test methods                                 *
+     *********************************************************************************************/
 }
