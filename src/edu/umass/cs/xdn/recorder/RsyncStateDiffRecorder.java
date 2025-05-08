@@ -10,6 +10,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
@@ -222,6 +225,73 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public String getDefaultBasePath() {
         return this.defaultWorkingBasePath;
+    }
+
+    @Override
+    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+        String currentReplica = String.format("%s%s/", this.defaultWorkingBasePath, myNodeId);
+
+        List<String> backupReplicas = backupNodes.stream()
+            .map(node -> String.format("%s%s/", this.defaultWorkingBasePath, node))
+            .collect(Collectors.toList());
+
+        System.out.println("Primary: " + currentReplica);
+        System.out.println("Backups: " + backupReplicas);
+
+        String mntDir = String.format("mnt/%s/", serviceName);
+        String snpDir = String.format("snp/%s/", serviceName);
+        String diffDir = String.format("diff/%s/", serviceName);
+
+        while (true) {
+            int exitCode = Shell.runCommand(String.format(
+                "rsync -avz --delete --human-readable %s/%s %s/%s",
+                currentReplica, mntDir, currentReplica, snpDir
+            ), false);
+
+            if (exitCode != 0) {
+                System.out.println(String.format("Failed to sync /mnt/ to /snp/ in %s", currentReplica));
+            } else {
+                break;
+            }
+
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+           
+        // Copy data to other replicas
+        Boolean allSyncSuccess = false;
+        while (!allSyncSuccess) {
+            allSyncSuccess = true;
+
+            for (String backupReplica: backupReplicas) {
+                int exitCode = Shell.runCommand(String.format("""
+                    rsync -avz --delete --human-readable \
+                    --include='mnt/' --include='%s' --include='%s***' \
+                    --include='snp/' --include='%s' --include='%s***' \
+                    --include='diff/' --include='%s' --include='%s***' \
+                    --exclude='*' \
+                    %s %s""",
+                    mntDir, mntDir, snpDir, snpDir, diffDir, diffDir,
+                    currentReplica, backupReplica
+                    ), false);
+
+                if (exitCode != 0) {
+                    System.out.println(String.format(
+                        "Failed to sync %s to %s", currentReplica, backupReplica
+                    ));
+                    allSyncSuccess = false;
+                }
+            }
+
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     /**********************************************************************************************

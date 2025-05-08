@@ -20,6 +20,7 @@ import edu.umass.cs.xdn.service.ServiceComponent;
 import edu.umass.cs.xdn.service.ServiceInstance;
 import edu.umass.cs.xdn.service.ServiceProperty;
 import edu.umass.cs.xdn.utils.Shell;
+import edu.umass.cs.xdn.utils.ShellOutput;
 import edu.umass.cs.xdn.utils.Utils;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;
@@ -46,7 +47,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableApplication,
         InitialStateValidator {
@@ -1693,80 +1695,95 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     /**********************************************************************************************
      *                                  Backup Test methods                                     *
      *********************************************************************************************/
-    public String getRecorderType() {
-        switch (this.recorderType) {
-            case RecorderType.RSYNC:
-                return "rsync";
-            case RecorderType.ZIP:
-                return "zip";
-            case RecorderType.FUSELOG:
-                return "fuselog";
-            default:
-                return "unknown type";
-        }
-    }
-
     // This function is only called by the primary replica
-    public void multiFileInit(Set<String> backupNodes, String serviceName) {
-        switch (this.recorderType) {
-            case RecorderType.RSYNC:
-                break;
-            case RecorderType.ZIP:
-                System.out.println("Multi-file initialization is not supported on Zip.");
-                return;
-            case RecorderType.FUSELOG:
-                System.out.println("Multi-file initialization is not supported on Fuselog.");
-                return;
+    public void multiFileInit(Set<String> backupNodes, String serviceName, String databaseImage) {
+        // There's no way to detect if SQLite is used
+        String dbReadyMsg = null;
+        int migrateWaitTime = 5;
+        int numOfLines = 10;
+        switch (databaseImage) {
+            case "mysql":       dbReadyMsg = "MySQL init process done. Ready for start up"; migrateWaitTime = 35; break;
+            case "postgres":    dbReadyMsg = "database system is ready to accept connections"; migrateWaitTime = 10; break;
+            case "mariadb":     dbReadyMsg = "mariadbd: ready for connections"; migrateWaitTime = 20; break;
+            case "mongo":       dbReadyMsg = "Waiting for connections"; migrateWaitTime = 10; numOfLines = 20; break;
             default:
-                System.out.println("Unknown recorderType. Cannot perform Multi-file initialization.");
-                return;
+                System.out.printf("Database unknown. Timeout for 5 seconds to wait for database to initialize...\n");
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
         }
 
-        System.out.println(">> Handling non-deterministic service");
-        String defaultWorkingBasePath = this.stateDiffRecorder.getDefaultBasePath();
-        String currentReplica = String.format("%s%s/", defaultWorkingBasePath, this.myNodeId);
+        if (dbReadyMsg != null) {
+            System.out.printf("dbReadyMsg: %s\n", dbReadyMsg);
 
-        List<String> backupReplicas = backupNodes.stream()
-            .map(node -> String.format("%s%s/", defaultWorkingBasePath, node))
-            .collect(Collectors.toList());
+            // String pattern = String.format(".*(?:%s).*", dbReadyMsg);
+            Pattern p = Pattern.compile(dbReadyMsg);
 
-        System.out.println("Primary: " + currentReplica);
-        System.out.println("Backups: " + backupReplicas);
+            int iter = 0;
+            int MAX_ITER = 50;
 
-        String mntDir = String.format("mnt/%s/", serviceName);
-        String snpDir = String.format("snp/%s/", serviceName);
-        String diffDir = String.format("diff/%s/", serviceName);
+            // Assumes that the stateful container is always the first 
+            // declared service property (not always the case)
+            int idx = 0;
+            int epoch = 0;
+            ShellOutput commandOutput = null;
 
-        int exitCode = Shell.runCommand(String.format(
-            "rsync -avz --delete --human-readable %s/%s %s/%s",
-            currentReplica, mntDir, currentReplica, snpDir
-        ), false);
-        if (exitCode != 0) {
-            System.out.println(String.format("Failed to sync /mnt/ to /snp/ in %s", currentReplica));
+            // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
+            // Example : c1.e2.bookcatalog.ar2.xdn.io
+            do {
+                iter++;
+                commandOutput = Shell.runCommandWithOutput(String.format(
+                    "docker logs --tail %d c%d.e%d.%s.%s.xdn.io", 
+                    numOfLines, idx, epoch, serviceName, this.myNodeId
+                    ), false
+                );
+
+                String output = ((commandOutput.stdout == null) ? "" : commandOutput.stdout)
+                    + ((commandOutput.stderr == null) ? "" : commandOutput.stderr);
+                //String output = (commandOutput.stdout == null) ? "" : commandOutput.stdout;
+                Matcher matcher = p.matcher(output);
+
+                if (commandOutput.exitCode != 0) {
+                    System.out.println("Command failed to run");
+                } else if (!matcher.find()) {
+                    // System.out.println(commandOutput);
+                    System.out.printf("Failed detecting database initialization (iter=%d)\n", iter);
+                    if (iter >= MAX_ITER) {
+                        System.out.printf("Failed detecting database initialization after %d iterations. Forcefully exit loop\n", iter);
+                        break;
+                    }
+                } else {
+                    break;
+                }
+
+                // Wait 1 seconds
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            } while (true);
+
+            System.out.println("Database initialized");
         }
-           
-        // Copy data to other replicas
-        for (String backupReplica: backupReplicas) {
-            exitCode = Shell.runCommand(String.format("""
-                rsync -avz --delete --human-readable \
-                --include='mnt/' --include='%s' --include='%s***' \
-                --include='snp/' --include='%s' --include='%s***' \
-                --include='diff/' --include='%s' --include='%s***' \
-                --exclude='*' \
-                %s %s""",
-                mntDir, mntDir, snpDir, snpDir, diffDir, diffDir,
-                currentReplica, backupReplica
-            ), false);
 
-            if (exitCode != 0) {
-                System.out.println(String.format(
-                    "Failed to sync %s to %s", currentReplica, backupReplica
-                ));
-            }
+        System.out.printf("Waiting another %d seconds for migration...\n", migrateWaitTime);
+        try {
+            Thread.sleep(migrateWaitTime * 1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+
+        // Currently, only RsyncStateRecorder supports multi-file initialization
+        // FUSELOG and ZIP will return immediately.
+        this.stateDiffRecorder.initContainerSync(this.myNodeId, backupNodes, serviceName);
     }
 
     /**********************************************************************************************
      *                                  End Backup Test methods                                 *
      *********************************************************************************************/
+        // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
+        // Example : c0.e2.bookcatalog.ar2.xdn.io
 }

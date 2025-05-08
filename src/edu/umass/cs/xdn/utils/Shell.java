@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import edu.umass.cs.xdn.utils.ShellOutput;
+
 
 public class Shell {
 
@@ -65,4 +67,42 @@ public class Shell {
         return runCommand(command, true);
     }
 
+
+    public static ShellOutput runCommandWithOutput(String command, boolean isSilent,
+                                 Map<String, String> environmentVariables) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
+
+            if (environmentVariables != null) {
+                Map<String, String> processEnv = pb.environment();
+                processEnv.putAll(environmentVariables);
+            }
+
+            if (!isSilent) {
+                System.out.println("command: " + command);
+                if (environmentVariables != null) {
+                    System.out.println(environmentVariables.toString());
+                }
+            }
+
+            Process process = pb.start();
+
+            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+
+            int exitCode = process.waitFor();
+
+            return new ShellOutput(stdout, stderr, exitCode);
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static ShellOutput runCommandWithOutput(String command, boolean isSilent)  {
+        return runCommandWithOutput(command, isSilent, null);
+    }
+
+    public static ShellOutput runCommandWithOutput(String command)  {
+        return runCommandWithOutput(command, true);
+    }
 }

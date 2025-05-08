@@ -29,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
@@ -700,7 +702,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return true;
         }
 
-        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes);
+        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, initialState);
         if (!isInitializationSuccess) {
             System.out.printf("Failed to initialize replica group for %s\n", groupName);
             return false;
@@ -767,7 +769,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         return true;
     }
 
-    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes) {
+    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes, String initialState) {
         this.currentRole.put(groupName, Role.BACKUP);
         NodeIDType paxosCoordinatorID = this.paxosManager.getPaxosCoordinator(groupName);
         if (paxosCoordinatorID == null) {
@@ -794,39 +796,45 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     currentPrimaryEpoch.put(groupName, zero);
                     processOutstandingRequests();
 
-                    if (this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp) {
-                        PrimaryBackupMiddlewareApp middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
+                    PrimaryBackupMiddlewareApp middleware;
+                    XdnGigapaxosApp xdnApp;
 
-                        if (middleware.getReplicableApp() instanceof XdnGigapaxosApp) {
-                            XdnGigapaxosApp xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
-                            System.out.println("YES YES YES YES");
+                    if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
+                        return;
 
-                            System.out.println(">> Handling non-deterministic service");
-                            Set<String> backupNodes = nodes.stream()
-                                .map(String::valueOf)
-                                .filter(node -> !node.equals(this.myNodeID.toString()))
-                                .map(String::toLowerCase)
-                                .collect(Collectors.toSet());
+                    middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
 
-                            System.out.println(String.format(
-                                "\n>>> %s is the Primary for %s. Timeout for 30 seconds to wait for database to initialize...\n",
-                                this.myNodeID.toString(), groupName
-                            ));
+                    if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
+                        return;
 
-                            try {
-                                // Wait for database to initialize
-                                Thread.sleep(30000);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+                    System.out.println(">> Handling non-deterministic service initialization");
+                    xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
+                    Set<String> backupNodes = nodes.stream()
+                        .map(String::valueOf)
+                        .filter(node -> !node.equals(this.myNodeID.toString()))
+                        .map(String::toLowerCase)
+                        .collect(Collectors.toSet());
 
-                            xdnApp.multiFileInit(backupNodes, groupName);
-                            System.out.println("\n>>> Multi-file Initialization finished\n");
-                            // System.out.println(backupNodes);
-                            // System.out.println(xdnApp.getRecorderType());
-                        }
+                    String pattern = "xdn:init:\\{\"components\":\\[.*\\{\"(.+)\":\\{.*\"image\":\"(.+):(:?.+)\",.*\"stateful\":true.*}}].+}";
+                    Pattern p = Pattern.compile(pattern, Pattern.MULTILINE);
+                    Matcher matcher = p.matcher(initialState);
+                    System.out.println("initialState: " + initialState);
+                    // System.out.println("groupCount: " + matcher.groupCount());
 
+                    if (!matcher.find()) {
+                        System.out.println("No match found. Invalid initialState or regex error");
+                        return;
                     }
+
+                    // String containerName = matcher.group(1);
+                    // System.out.println("containerName: " + containerName);
+                    String databaseImage = matcher.group(2);
+                    System.out.println("databaseImage: " + databaseImage);
+
+                    xdnApp.multiFileInit(backupNodes, groupName, databaseImage);
+                    System.out.println("\n>>> Multi-file Initialization finished\n");
+                    // System.out.println(backupNodes);
+                    // System.out.println(xdnApp.getRecorderType());
                 }
             );
         }

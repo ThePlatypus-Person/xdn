@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.Set;
 
 public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
 
@@ -219,6 +220,12 @@ public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public String getDefaultBasePath() {
         return this.defaultWorkingBasePath;
+    }
+
+    @Override
+    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+        System.out.println("Multi-file initialization is not supported on Zip.");
+        return;
     }
 
     /**********************************************************************************************

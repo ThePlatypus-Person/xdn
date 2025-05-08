@@ -138,7 +138,7 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
                     long elapsedTime = System.nanoTime() - startProcessingTime;
                     String timeLog = String.format(
                         "%50s %6.3fs", 
-                        "PaxosReplicaCoordinator.coordinateRequest()",
+                        "PrimaryBackupReplicaCoordinator.coordinateRequest()",
                         elapsedTime / 1000_000_000.0
                     );
                     System.out.println(timeLog);

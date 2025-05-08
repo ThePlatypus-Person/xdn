@@ -1,4 +1,5 @@
 package edu.umass.cs.xdn.recorder;
+import java.util.Set;
 
 public abstract class AbstractStateDiffRecorder {
 
@@ -25,4 +26,5 @@ public abstract class AbstractStateDiffRecorder {
 
     // Backup Test Methods
     abstract public String getDefaultBasePath();
+    abstract public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName);
 }

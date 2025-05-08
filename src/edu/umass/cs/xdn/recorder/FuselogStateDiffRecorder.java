@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
@@ -256,6 +257,12 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public String getDefaultBasePath() {
         return this.defaultWorkingBasePath;
+    }
+
+    @Override
+    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+        System.out.println("Multi-file initialization is not supported on Fuselog.");
+        return;
     }
 
     /**********************************************************************************************
