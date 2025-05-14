@@ -61,6 +61,7 @@ import edu.umass.cs.nio.interfaces.PacketDemultiplexer;
 import edu.umass.cs.nio.interfaces.SSLMessenger;
 import edu.umass.cs.nio.nioutils.NIOHeader;
 import edu.umass.cs.nio.nioutils.RTTEstimator;
+import edu.umass.cs.primarybackup.PrimaryBackupReplicaCoordinator;
 import edu.umass.cs.protocoltask.ProtocolExecutor;
 import edu.umass.cs.protocoltask.ProtocolTask;
 import edu.umass.cs.reconfiguration.ReconfigurationConfig.RC;
@@ -104,6 +105,8 @@ import edu.umass.cs.utils.GCConcurrentHashMap;
 import edu.umass.cs.utils.GCConcurrentHashMapCallback;
 import edu.umass.cs.utils.Util;
 import edu.umass.cs.utils.UtilServer;
+import edu.umass.cs.xdn.service.ServiceProperty;
+
 
 /**
  * @author V. Arun
@@ -161,6 +164,8 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 	private ActiveReplica(AbstractReplicaCoordinator<NodeIDType> appC,
 			ReconfigurableNodeConfig<NodeIDType> nodeConfig,
 			SSLMessenger<NodeIDType, ?> messenger, boolean noReporting) {
+
+        System.out.printf("ActiveReplica.constructor()\n AR: %s\n", nodeConfig.getActiveReplicasReadOnly().toString());
 		this.originalAppCoordinator = appC;
 		this.appCoordinator = (AbstractReplicaCoordinator<NodeIDType>)
 				wrapCoordinator(appC.setStopCallback(
@@ -893,6 +898,9 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 	public GenericMessagingTask<NodeIDType, ?>[] handleStartEpoch(
 			StartEpoch<NodeIDType> event,
 			ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
+
+        System.out.printf("ActiveReplica.handleStartEpoch() - ID: %s AR: %s\n", this.getMyID(), this.nodeConfig.getActiveReplicasReadOnly().toString());
+
 		StartEpoch<NodeIDType> startEpoch = ((StartEpoch<NodeIDType>) event);
 		this.logEvent(event, Level.FINE);
 		AckStartEpoch<NodeIDType> ackStart = new AckStartEpoch<NodeIDType>(
@@ -925,12 +933,50 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 			boolean created = false;
 			try {
 				// createReplicaGroup is a local operation (but may fail)
-				created = startEpoch.isBatchedCreate() ? this
-						.batchedCreate(startEpoch) : this.appCoordinator
-						.createReplicaGroup(startEpoch.getServiceName(),
-								startEpoch.getEpochNumber(),
-								startEpoch.getInitialState(),
-								startEpoch.getCurEpochGroup());
+                System.out.printf("ActiveReplica.handleStartEpoch().batchedCreate() - ID: %s\n", this.getMyID());
+
+                // For PBManager (temporary solution)
+                // Parse and validate the service's properties
+                final String validInitialStatePrefix = "xdn:init:";
+                final String validEpochFinalStatePrefix = "xdn:final:";
+                String encodedProperties = null;
+                String initialState = startEpoch.getInitialState();
+                if (initialState.startsWith(validInitialStatePrefix)) {
+                    encodedProperties = initialState.substring(validInitialStatePrefix.length());
+                }
+                if (initialState.startsWith(validEpochFinalStatePrefix)) {
+                    // format: xdn:final:<epoch>::<serviceProperty>::<finalState>
+                    String[] raw = initialState.split("::");
+                    assert raw.length >= 2;
+                    encodedProperties = raw[1];
+                }
+                assert encodedProperties != null;
+                ServiceProperty serviceProperty = null;
+                try {
+                    serviceProperty = ServiceProperty.createFromJsonString(encodedProperties);
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (!serviceProperty.isDeterministic()) {
+                    // Special case for PrimaryBackupReplicaCoordinator for multi-file
+                    // initialization which required IP Address
+                    created = startEpoch.isBatchedCreate() ? this
+                        .batchedCreate(startEpoch) : this.appCoordinator
+                        .createReplicaGroup(startEpoch.getServiceName(),
+                                startEpoch.getEpochNumber(),
+                                startEpoch.getInitialState(),
+                                startEpoch.getCurEpochGroup(),
+                                null);
+                } else {
+                    created = startEpoch.isBatchedCreate() ? this
+                        .batchedCreate(startEpoch) : this.appCoordinator
+                        .createReplicaGroup(startEpoch.getServiceName(),
+                                startEpoch.getEpochNumber(),
+                                startEpoch.getInitialState(),
+                                startEpoch.getCurEpochGroup());
+                }
+
 			} catch (Error e) {
 				log.severe(this
 						+ " received null state in non-passive startEpoch "

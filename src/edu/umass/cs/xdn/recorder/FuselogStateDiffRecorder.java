@@ -5,6 +5,7 @@ import edu.umass.cs.xdn.utils.Shell;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
@@ -260,7 +261,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses) {
         System.out.println("Multi-file initialization is not supported on Fuselog.");
         return;
     }

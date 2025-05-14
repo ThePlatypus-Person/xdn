@@ -122,6 +122,8 @@ public abstract class ReconfigurableNode<NodeIDType> {
     private AbstractReplicaCoordinator<NodeIDType> createApp(String[] args,
                                                              // private ReplicaCoordinator<NodeIDType> createApp(String[] args,
                                                              ReconfigurableNodeConfig<NodeIDType> nodeConfig) {
+
+        System.out.printf("ReconfigurableNode.createApp() - ID: %s\n AR: %s\n", this.myID, nodeConfig.getActiveReplicasReadOnly().toString());
         AbstractReplicaCoordinator<NodeIDType> appCoordinator = null;
         // ReplicaCoordinator<NodeIDType> appCoordinator = null;
 

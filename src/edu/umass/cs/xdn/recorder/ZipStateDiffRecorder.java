@@ -6,11 +6,13 @@ import edu.umass.cs.xdn.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Set;
 
 public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
@@ -223,7 +225,7 @@ public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses) {
         System.out.println("Multi-file initialization is not supported on Zip.");
         return;
     }

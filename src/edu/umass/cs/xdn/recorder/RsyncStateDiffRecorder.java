@@ -1,16 +1,20 @@
 package edu.umass.cs.xdn.recorder;
 
 import edu.umass.cs.xdn.utils.Shell;
+import edu.umass.cs.xdn.utils.ShellOutput;
 import edu.umass.cs.xdn.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -228,12 +232,18 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, Set<String> backupNodes, String serviceName) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses) {
+        Set<String> backupNodes = ipAddresses.keySet().stream()
+            .filter(node -> !node.equals(myNodeId.toString()))
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+        System.out.printf("RsyncStateDiff backupNodes = %s\n", backupNodes);
+        System.out.printf("RsyncStateDiff ipAddresses = %s\n", ipAddresses);
+
         String currentReplica = String.format("%s%s/", this.defaultWorkingBasePath, myNodeId);
 
-        List<String> backupReplicas = backupNodes.stream()
-            .map(node -> String.format("%s%s/", this.defaultWorkingBasePath, node))
-            .collect(Collectors.toList());
+        Map<String, String> backupReplicas = new HashMap<>();
+        backupNodes.forEach(node -> backupReplicas.put(node, String.format("%s%s/", this.defaultWorkingBasePath, node)));
 
         System.out.println("Primary: " + currentReplica);
         System.out.println("Backups: " + backupReplicas);
@@ -241,6 +251,8 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         String mntDir = String.format("mnt/%s/", serviceName);
         String snpDir = String.format("snp/%s/", serviceName);
         String diffDir = String.format("diff/%s/", serviceName);
+
+        String username = Shell.runCommandWithOutput("whoami").stdout.trim();
 
         while (true) {
             int exitCode = Shell.runCommand(String.format(
@@ -263,24 +275,31 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
            
         // Copy data to other replicas
         Boolean allSyncSuccess = false;
+        int count = 0;
         while (!allSyncSuccess) {
+            if (++count > 10) {
+                throw new RuntimeException("Failed running rsync after 10 iterations");
+            }
+
             allSyncSuccess = true;
 
-            for (String backupReplica: backupReplicas) {
+            for (String key: backupReplicas.keySet()) {
                 int exitCode = Shell.runCommand(String.format("""
                     rsync -avz --delete --human-readable \
                     --include='mnt/' --include='%s' --include='%s***' \
                     --include='snp/' --include='%s' --include='%s***' \
                     --include='diff/' --include='%s' --include='%s***' \
                     --exclude='*' \
-                    %s %s""",
+                    %s %s@%s:%s""", 
                     mntDir, mntDir, snpDir, snpDir, diffDir, diffDir,
-                    currentReplica, backupReplica
+                    currentReplica, 
+                    username, ipAddresses.get(key).getHostAddress(),
+                    backupReplicas.get(key)
                     ), false);
 
                 if (exitCode != 0) {
                     System.out.println(String.format(
-                        "Failed to sync %s to %s", currentReplica, backupReplica
+                        "Failed to sync %s to %s", currentReplica, backupReplicas.get(key)
                     ));
                     allSyncSuccess = false;
                 }

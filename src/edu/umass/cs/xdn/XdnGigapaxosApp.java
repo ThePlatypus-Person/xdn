@@ -27,6 +27,7 @@ import io.netty.handler.codec.http.*;
 import org.json.JSONException;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.net.StandardProtocolFamily;
 import java.net.URI;
@@ -1696,7 +1697,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *                                  Backup Test methods                                     *
      *********************************************************************************************/
     // This function is only called by the primary replica
-    public void multiFileInit(Set<String> backupNodes, String serviceName, String databaseImage) {
+    public void multiFileInit(String serviceName, String databaseImage, Map<String, InetAddress> ipAddresses) {
         // There's no way to detect if SQLite is used
         String dbReadyMsg = null;
         int migrateWaitTime = 5;
@@ -1778,7 +1779,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // Currently, only RsyncStateRecorder supports multi-file initialization
         // FUSELOG and ZIP will return immediately.
-        this.stateDiffRecorder.initContainerSync(this.myNodeId, backupNodes, serviceName);
+        this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses);
     }
 
     /**********************************************************************************************
