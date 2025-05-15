@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.json.JSONException;
 
@@ -239,6 +240,23 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                                 + Util.truncate(this.getCheckpointState(), 64, 64)
                                 : "{initial_state=[" + initialState)
                                 + "]}"});
+    }
+
+    PaxosInstanceStateMachine(String groupId, int version, 
+                              Set<Integer> gms, PaxosManager<?> pm) {
+
+        /* Final assignments: A paxos instance is born with a paxosID, version
+         * this instance's node ID, the application request handler, the paxos
+         * manager, and the group members. */
+        this.paxosID = PAXOS_ID_AS_STRING ? groupId : groupId.getBytes();
+        this.version = version;
+        // this.clientRequestHandler = app;
+        this.paxosManager = pm;
+        assert (gms != null && gms.size() > 0);
+        Arrays.sort(this.groupMembers = Util.setToIntArray(gms));
+        /**************** End of final assignments *******************/
+
+        initiateRecovery(null, false);
     }
 
     /**
@@ -497,6 +515,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         MessagingTask mtask = null;
         MessagingTask[] batchedTasks = null;
 
+        //System.out.printf("PaxosInstanceStateMachine.handlePaxosMessage(msgType=%s)\n", msgType);
         switch (msgType) {
             case REQUEST:
                 batchedTasks = handleRequest((RequestPacket) pp);
@@ -516,6 +535,16 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                 // do nothing
                 break;
             case BATCHED_COMMIT:
+                /*
+                System.out.println("PaxosInstanceStateMachine.handlePaxosMessage(BATCHED_COMMIT)");
+                StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                String stackTraceString = Arrays.stream(stackTrace)
+                    .skip(1) // Skip the top element (this method call itself)
+                    .map(StackTraceElement::toString)
+                    .collect(Collectors.joining("\n\tat "));
+                System.out.println("Stack Trace:\n\tat " + stackTraceString);
+                */
+
                 mtask = handleBatchedCommit((BatchedCommit) pp);
                 // send nothing, but log decision
                 break;
@@ -1052,6 +1081,12 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         this.paxosManager.heardFrom(accept.ballot.coordinatorID); // FD
         RequestInstrumenter.received(accept, accept.sender, this.getMyID());
 
+        String logOutput = String.format(
+            "PaxosInstanceStateMachine.handleAccept(myID=%s, sender=%d)\n",
+            this.getMyID(), accept.sender
+        );
+        //System.out.print(logOutput);
+
         // if(!accept.hasRequestValue())
         // DelayProfiler.updateCount("C_DIGESTED_ACCEPTS_RCVD",
         // accept.batchSize()+1);
@@ -1059,7 +1094,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         AcceptPacket copy = accept;
         if (DIGEST_REQUESTS && !accept.hasRequestValue()) {
             if ((accept = this.paxosManager.match(accept)) == null) {
-                log.log(Level.FINE, "{0} received unmatched accept ",
+                log.log(Level.INFO, "{0} received unmatched accept ",
                         new Object[]{this,
                                 copy.getSummary(log.isLoggable(Level.FINE))});
                 // if(this.paxosState.getSlot() - copy.slot > 0)
@@ -1067,7 +1102,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                 // copy.batchSize()+1);
                 return new MessagingTask[0];
             } else
-                log.log(Level.FINER, "{0} received matching accept for {1}",
+                log.log(Level.INFO, "{0} received matching accept for {1}",
                         new Object[]{this, accept.getSummary()});
         }
 
@@ -1085,17 +1120,17 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                 this.getMyID()
             ));
             */
+            logOutput = String.format("%s\t>> thisPaxosManager.incrOutstanding()\n", logOutput);
 
             this.paxosManager.incrOutstanding(accept.addDebugInfoDeep("a")); // stats
         }
 
         if (EXECUTE_UPON_ACCEPT) { // only for testing
-            /*
+            logOutput = String.format("%s\t>> EXECUTE_UPON_ACCEPT\n", logOutput);
             System.out.println(String.format(
                 "PaxosInstanceStateMachine.handleAccept(myID=%d) calls execute()",
                 this.getMyID()
             ));
-            */ 
             PaxosInstanceStateMachine.execute(this, getPaxosManager(),
                     this.getApp(), accept, false);
             if (Util.oneIn(10))
@@ -1107,6 +1142,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         Ballot ballot = null;
         PValuePacket prev = this.paxosState.getAccept(accept.slot);
         try {
+            logOutput = String.format("%s\t>> acceptAndUpdateBallot()\n", logOutput);
             ballot = !EXECUTE_UPON_ACCEPT ? this.paxosState
                     .acceptAndUpdateBallot(accept, this.getMyID())
                     : this.paxosState.getBallot();
@@ -1114,12 +1150,18 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
             log.severe(this + " : " + e.getMessage());
             Util.suicide(e.getMessage());
         }
-        if (ballot == null)
+        if (ballot == null) {
+            logOutput = String.format("%s\t>> [true] ballot == null\n", logOutput);
+            //System.out.print(logOutput);
             return null; // can happen only if acceptor is stopped.
+        }
 
         this.garbageCollectAccepted(accept.getMedianCheckpointedSlot());
-        if (accept.isRecovery())
+        if (accept.isRecovery()) {
+            logOutput = String.format("%s\t>> [true] accept.isRecovery()\n", logOutput);
+            //System.out.print(logOutput);
             return null; // recovery ACCEPTS do not need any reply
+        }
 
         AcceptReplyPacket acceptReply = new AcceptReplyPacket(this.getMyID(),
                 ballot, accept.slot,
@@ -1146,6 +1188,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                 .handleCommittedRequest(reconstructedDecision) : null;
 
         MessagingTask[] mtasks = {acceptReplyTask, commitTask};
+        System.out.print(logOutput);
 
         return mtasks;
     }
@@ -1231,15 +1274,20 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
      * the preempted proposal if any to be unicast to the preempting
      * coordinator. Null if neither. */
     private MessagingTask handleAcceptReply(AcceptReplyPacket acceptReply) {
+        String logOutput = String.format("PaxosInstanceStateMachine.handleAcceptReply(ID=%s)\n", this.getMyID());
+
         this.paxosManager.heardFrom(acceptReply.acceptor); // FD optimization
         RequestInstrumenter.received(acceptReply, acceptReply.acceptor,
                 this.getMyID());
 
         Level level = Level.FINER;
+        //Level level = Level.INFO;
         log.log(level, "{0} handling accept reply {1}", new Object[]{this, acceptReply.getSummary(log.isLoggable(level))});
 
         // handle if undigest request first
         if (acceptReply.isUndigestRequest()) {
+            logOutput = String.format("%s\t>> [true] acceptReply.isUndigestRequest()\n", logOutput);
+
             AcceptPacket accept = this.paxosState
                     .getAccept(acceptReply.slotNumber);
             assert (accept == null || accept.hasRequestValue());
@@ -1252,19 +1300,26 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                     accept) : null;
         }
 
+        logOutput = String.format("%s\t>> Calls PaxosCoordinator.handleAcceptReply()\n", logOutput);
         PValuePacket committedPValue = PaxosCoordinator.handleAcceptReply(
                 this.coordinator, this.groupMembers, acceptReply);
 
+        logOutput = String.format("%s\t>> Calls nullifyCoordinatorIfPreemptedFully()\n", logOutput);
         nullifyCoordinatorIfPreemptedFully(acceptReply);
 
-        if (committedPValue == null)
+        if (committedPValue == null) {
+            logOutput = String.format("%s\t>> committedPValue = null\n", logOutput);
+            //System.out.print(logOutput);
             return null;
+        }
 
         MessagingTask multicastDecision = null;
         // separate variables only for code readability
         MessagingTask unicastPreempted = null;
         // could also call handleCommittedRequest below
         if (committedPValue.getType() == PaxosPacket.PaxosPacketType.DECISION) {
+            logOutput = String.format("%s\t>> [true] committedPValue == DECISION\n", logOutput);
+
             committedPValue.addDebugInfo("d");
             // this.handleCommittedRequest(committedPValue);
             multicastDecision = new MessagingTask(this.groupMembers,
@@ -1282,6 +1337,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
             }
         } else if (committedPValue.getType() == PaxosPacket.PaxosPacketType.PREEMPTED
                 && Config.getGlobalBoolean(PC.FORWARD_PREEMPTED_REQUESTS)) {
+            logOutput = String.format("%s\t>> [true] committedPValue == PREEMPTED\n", logOutput);
             /* Could drop the request, but we forward the preempted proposal as
              * a no-op to the new coordinator for testing purposes. The new(er)
              * coordinator information is within acceptReply. Note that our
@@ -1336,16 +1392,25 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 				committedPValue.getSummary() });
 		}
 
-		if (EXECUTE_UPON_ACCEPT)
+		if (EXECUTE_UPON_ACCEPT) {
+            logOutput = String.format("%s\t>> [true] EXECUTE_UPON_ACCEPT\n", logOutput);
+            //System.out.print(logOutput);
 			return null;
+        }
 
+        logOutput = String.format("%s\t>> %s\n", logOutput,
+            (committedPValue.getType() == PaxosPacket.PaxosPacketType.DECISION ? "multicastDecision" : "unicastPreempted")
+        );
+        //System.out.print(logOutput);
 		return committedPValue.getType() == PaxosPacket.PaxosPacketType.DECISION ? multicastDecision
 				: unicastPreempted;
 	}
 
 	private synchronized void nullifyCoordinatorIfPreemptedFully(AcceptReplyPacket acceptReply) {
-			if (PaxosCoordinator.isPreemptedFully(this.coordinator, acceptReply))
+			if (PaxosCoordinator.isPreemptedFully(this.coordinator, acceptReply)) {
 				this.coordinator = null;
+                //System.out.printf("\tthis.coordinator = null\n");
+            }
 	}
 
 	/* Each accept reply can generate a decision here, so we need to batch the
@@ -1415,6 +1480,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 			.getGlobalBoolean(PC.LOG_META_DECISIONS);
 
 	private MessagingTask handleCommittedRequest(PValuePacket committed) {
+        //System.out.printf("PaxosInstanceStateMachine.handleCommittedRequest(myID=%d, paxosID=%s)\n", this.getMyID(), committed.getPaxosID());
 		assert (committed.getPaxosID() != null);
 		//RequestInstrumenter.received(committed, committed.ballot.coordinatorID,this.getMyID());
 		if (instrument(!BATCHED_COMMITS)
@@ -1759,23 +1825,27 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
             req -> ((req.getClientAddress() == null) ? "null" : req.getClientAddress().toString())
         ).toArray(String[]::new);
 
-        /*
         System.out.println(String.format(
                 "PaxosInstanceStateMachine.execute() - Client Addresses: %s",
                 Arrays.toString(clientAddresses)
             )
         );
+        /*
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        String stackTraceString = Arrays.stream(stackTrace)
+            .skip(1) // Skip the top element (this method call itself)
+            .map(StackTraceElement::toString)
+            .collect(Collectors.joining("\n\tat "));
+        System.out.println("Stack Trace:\n\tat " + stackTraceString);
         */
             
 		for (RequestPacket requestPacket : decision.getRequestPackets()) {
 			boolean executed = false;
 			int retries = 0;
 
-            /*
             if (requestPacket.getClientAddress() == null) {
-                System.out.printf("PaxosInstanceStateMachine.execute() -- req.clientAddr=null\n");
+                //System.out.printf("PaxosInstanceStateMachine.execute() -- req.clientAddr=null\n");
             }
-            */
 
 			do {
 				try {

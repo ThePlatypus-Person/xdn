@@ -50,6 +50,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableApplication,
         InitialStateValidator {
@@ -503,6 +504,16 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      * @return false if failed to initialize the service.
      */
     private boolean initContainerizedService2(String serviceName, String initialState) {
+        /*
+        System.out.printf("initContainerizedService2(service=%s, myNodeId=%s)\n", serviceName, this.myNodeId);
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        String stackTraceString = Arrays.stream(stackTrace)
+            .skip(1) // Skip the top element (this method call itself)
+            .map(StackTraceElement::toString)
+            .collect(Collectors.joining("\n\tat "));
+        System.out.println("Stack Trace:\n\tat " + stackTraceString);
+        */
+
         String validInitialStatePrefix = ServiceProperty.XDN_INITIAL_STATE_PREFIX;
         int initialPlacementEpoch = 0;
 
@@ -605,6 +616,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
 
         // store all the current service metadata
+        System.out.printf("%s:XdnGigapaxosApp - Storing %s into services\n", this.myNodeId, serviceName);
         this.services.put(serviceName, service);
         this.activeServicePorts.put(serviceName, allocatedPort);
 
@@ -1734,7 +1746,11 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
             // Example : c1.e2.bookcatalog.ar2.xdn.io
             do {
-                iter++;
+                if (++iter > MAX_ITER) {
+                    System.out.printf("Failed detecting database initialization after %d iterations. Forcefully exit loop\n", iter);
+                    break;
+                }
+
                 commandOutput = Shell.runCommandWithOutput(String.format(
                     "docker logs --tail %d c%d.e%d.%s.%s.xdn.io", 
                     numOfLines, idx, epoch, serviceName, this.myNodeId
@@ -1751,10 +1767,6 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                 } else if (!matcher.find()) {
                     // System.out.println(commandOutput);
                     System.out.printf("Failed detecting database initialization (iter=%d)\n", iter);
-                    if (iter >= MAX_ITER) {
-                        System.out.printf("Failed detecting database initialization after %d iterations. Forcefully exit loop\n", iter);
-                        break;
-                    }
                 } else {
                     break;
                 }

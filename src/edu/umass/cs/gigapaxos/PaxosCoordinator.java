@@ -193,6 +193,7 @@ protected abstract void setNodeSlots(int[] nodeSlots);
 	}
 	protected static PValuePacket handleAcceptReply(PaxosCoordinator c, int[] members,
 			AcceptReplyPacket acceptReply) {
+        // System.out.printf("PaxosCoordinator.handleAcceptReply()\n");
 		return c!=null ? c.handleAcceptReply(members, acceptReply) : null;
 	}
 	

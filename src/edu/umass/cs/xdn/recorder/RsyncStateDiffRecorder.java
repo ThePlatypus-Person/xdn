@@ -146,10 +146,22 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
         String command = String.format("%s -ar --write-batch=%s %s %s",
                 RSYNC_BIN_PATH, targetDiffFile, targetSourceDir, targetDestDir);
-        int exitCode = Shell.runCommand(command, true);
+        int exitCode = 1;
+        int captureCount = 0;
+        while (exitCode != 0) {
+            if (++captureCount > 10) {
+                throw new RuntimeException("failed to capture stateDiff after 10 iterations");
+            }
+
+            System.out.printf("Capturing stateDiff (iter=%d)\n", captureCount);
+            exitCode = Shell.runCommand(command, true);
+        }
+
+        /*
         if (exitCode != 0) {
             throw new RuntimeException("failed to capture stateDiff");
         }
+        */
 
         // read diff into byte[]
         byte[] stateDiff;
@@ -208,7 +220,17 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         // apply the stateDiff inside the .diff file using rsync
         String command = String.format("%s -ar --read-batch=%s %s",
                 RSYNC_BIN_PATH, targetDiffFile, targetDir);
-        retCode = Shell.runCommand(command, false);
+        retCode = 1;
+        int count = 0;
+        while (retCode != 0) {
+            if (++count > 10) {
+                throw new RuntimeException("failed to apply stateDiff after 10 iterations");
+            }
+
+            System.out.printf("Applying stateDiff (iter=%d)\n", count);
+            retCode = Shell.runCommand(command, true);
+        }
+
         assert retCode == 0;
 
         return true;

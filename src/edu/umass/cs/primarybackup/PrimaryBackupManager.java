@@ -181,9 +181,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
     public boolean handlePrimaryBackupPacket(
             PrimaryBackupPacket packet, ExecutedCallback callback) {
+        /*
          System.out.printf(">> PBManager-%s: handling packet %s, is_paxos_leader=%b\n",
                  myNodeID, packet.getRequestType(),
                  this.paxosManager.isPaxosCoordinator(packet.getServiceName()));
+                 */
 
         // RequestPacket: client -> entry replica
         if (packet instanceof RequestPacket requestPacket) {
@@ -223,6 +225,13 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return executeStartEpochPacket(startEpochPacket);
         }
 
+        // InitBackupPacket: primary -> replica
+        // only executed by XDNGigapaxosApp
+        if (packet instanceof InitBackupPacket initBackupPacket) {
+            return executeInitBackupPacket(initBackupPacket);
+        }
+
+
         String exceptionMsg = String.format("unknown primary backup packet '%s'",
                 packet.getClass().getSimpleName());
         throw new RuntimeException(exceptionMsg);
@@ -258,7 +267,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
     // TODO: handle a batch of request from outstanding queue, instead of handling it one by one.
     private boolean executeRequestCoordinateStateDiff(RequestPacket packet,
                                                       ExecutedCallback callback) {
-        System.out.printf(">> PBManager-%s.executeRequestCoordinateStateDiff()\n",
+        System.out.printf("PBManager-%s.executeRequestCoordinateStateDiff()\n",
                myNodeID);
         // System.out.printf(">> PBManager-%s: handling request on primary %s\n",
         //        myNodeID, packet.toString());
@@ -301,36 +310,48 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 throw new RuntimeException("Failed to execute request for " + serviceName);
             }
             stateDiff = backupableApp.captureStatediff(serviceName);
+            System.out.printf(
+                "PBManager-%s.executeRequestCoordinateStateDiff() - finished executing request & capturing stateDiff\n",
+                myNodeID
+            );
         }
 
         // propose the stateDiff
         // System.out.printf(">>> %s:PBManager proposing epoch=%s statediff=%s\n",
         //        myNodeID, currentEpoch, stateDiff);
+        System.out.printf("\n>> PrimaryBackupManager.paxosManager.propose(statediff, ID=%s, epoch=%s)\n", myNodeID, currentEpoch);
         PrimaryEpoch finalCurrentEpoch = currentEpoch;
         String finalStateDiff = stateDiff;
         ApplyStateDiffPacket applyStateDiffPacket = new ApplyStateDiffPacket(
                 serviceName, currentEpoch, stateDiff);
         ReplicableClientRequest gpPacket = ReplicableClientRequest.wrap(applyStateDiffPacket);
+
         gpPacket.setClientAddress(messenger.getListeningSocketAddress());
-        System.out.println("this.paxosManager.propose(...)");
-        this.paxosManager.propose(
-                serviceName,
-                gpPacket,
-                (stateDiffPacket, handled) -> {
-                    System.out.printf(">>> %s:PBManager epoch=%s is accepted\n",
-                           myNodeID, finalCurrentEpoch);
-                    // System.out.printf(">>> %s:PBManager epoch=%s statediff=%s is accepted\n",
-                    //        myNodeID, finalCurrentEpoch, finalStateDiff);
-                    callback.executed(packet, handled);
-                });
+
 
         // put response if request is ClientRequest
         if (appRequest instanceof ClientRequest) {
             ClientRequest responsePacket = ((ClientRequest) appRequest).getResponse();
             packet.setResponse(responsePacket);
-            // System.out.printf(">> PBManager-%s: set response to %s\n",
-            //        myNodeID, responsePacket.toString());
+            /*
+            System.out.printf(">> PBManager-%s: set response to %s\n",
+                   myNodeID, responsePacket.toString());
+           */
+           System.out.printf(">> PBManager-%s: putting response packet because ClientRequest.\n", myNodeID);
         }
+
+        // issue somewhere here
+        this.paxosManager.propose(
+            serviceName,
+            gpPacket,
+            (stateDiffPacket, handled) -> {
+                System.out.printf("\n>>> %s:PBManager epoch=%s is accepted\n",
+                       myNodeID, finalCurrentEpoch);
+                // System.out.printf(">>> %s:PBManager epoch=%s statediff=%s is accepted\n",
+                //        myNodeID, finalCurrentEpoch, finalStateDiff);
+                callback.executed(packet, handled);
+            }
+        );
 
         return true;
     }
@@ -643,6 +664,14 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 "myEpoch=%s primaryEpoch=%s", currentEpoch, newPrimaryEpoch));
     }
 
+    // executeInitBackupPacket is being called by execute() in the PaxosMiddlewareApp
+    private boolean executeInitBackupPacket(InitBackupPacket packet) {
+        String groupName = packet.getServiceName();
+        String initialState = packet.getInitialState();
+
+        return this.replicableApp.restore(groupName, initialState);
+    }
+
     // executeGetCheckpoint is being called by checkpoint() in the PaxosMiddlewareApp
     private String executeGetCheckpoint(String groupName) {
         return this.replicableApp.checkpoint(groupName);
@@ -677,14 +706,13 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                                                Set<NodeIDType> nodes,
                                                String placementMetadata) {
         System.out.printf(">> %s PrimaryBackupManager - createPrimaryBackupInstance | " +
-                        "groupName: %s, placementEpoch: %d, initialState: %s, nodes: %s\n",
-                myNodeID, groupName, placementEpoch, initialState, nodes.toString()
+                        "groupName: %s, placementEpoch: %d, nodes: %s\n",
+                myNodeID, groupName, placementEpoch, nodes.toString()
         );
 
-
-        // this.paxosMiddlewareApp = XdnGigapaxosApp
-        boolean created = this.paxosManager.createPaxosInstanceForcibly(
-                groupName, placementEpoch, nodes, this.paxosMiddlewareApp, initialState, 0);
+        // groupName == serviceName
+        boolean created = this.paxosManager.createEmptyPaxosInstanceForcibly(
+                groupName, placementEpoch, nodes, 0);
         boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
                 groupName, placementEpoch);
 
@@ -715,11 +743,61 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
         boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, initialState);
         if (!isInitializationSuccess) {
-            System.out.printf("Failed to initialize replica group for %s\n", groupName);
+            System.out.printf("\nFailed to initialize replica group for %s\n", groupName);
             return false;
         }
 
         return true;
+
+        //// Original functions
+        
+        /*
+        // this.paxosMiddlewareApp = XdnGigapaxosApp
+        boolean created = this.paxosManager.createPaxosInstanceForcibly(
+                groupName, placementEpoch, nodes, this.paxosMiddlewareApp, initialState, 0);
+        boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
+                groupName, placementEpoch);
+
+        if (!created && !alreadyExist) {
+            throw new PaxosInstanceCreationException((this
+                    + " failed to create " + groupName + ":" + placementEpoch
+                    + " with state [" + initialState + "]") + "; existing_version=" +
+                    this.paxosManager.getVersion(groupName));
+        }
+
+        // FIXME: these three default replica groups must be handled with specific app that
+        //  uses Paxos.
+        if (groupName.equals(PaxosConfig.getDefaultServiceName()) ||
+                groupName.equals(AbstractReconfiguratorDB.RecordNames.AR_AR_NODES.toString()) ||
+                groupName.equals(AbstractReconfiguratorDB.RecordNames.AR_RC_NODES.toString())) {
+            return true;
+        }
+
+        // TODO: handle placement metadata
+        //   - if preferred coordinator is specified: set primary, set paxos leader
+        //   - if preferred coordinator is not specified: detect paxos leader -> set primary
+
+
+        // Put initialize primary Epoch Here:
+        Boolean success = false;
+        ////
+        if (placementMetadata != null) {
+            boolean isInitSuccess = this.initializePrimaryEpoch(groupName, placementMetadata);
+            assert isInitSuccess;
+            success = true;
+            //return true;
+        }
+
+        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, initialState);
+        if (!isInitializationSuccess) {
+            System.out.printf("Failed to initialize replica group for %s\n", groupName);
+            success = true;
+            //return false;
+        }
+        ////
+        return success;
+        //return true;
+        */
     }
 
     private boolean initializePrimaryEpoch(String groupName, String placementMetadata) {
@@ -833,6 +911,9 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     System.out.println(">> Handling non-deterministic service initialization");
                     xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
+                    // start docker containers via restore()
+                    xdnApp.restore(groupName, initialState);
+
                     // Parse and validate the service's properties
                     String encodedProperties = null;
                     if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX)) {
@@ -847,38 +928,27 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     }
 
                     String databaseImage = serviceProperty.getStatefulComponent().getImageName().split(":")[0];
-                    //String pattern = "xdn:init:\\{\"components\":\\[.*\\{\"(.+)\":\\{.*\"image\":\"(.+):(:?.+)\",.*\"stateful\":true.*}}].+}";
-                    /*
-                    Pattern p = Pattern.compile(pattern, Pattern.MULTILINE);
-                    Matcher matcher = p.matcher(initialState);
-                    System.out.println("initialState: " + initialState);
-                    // System.out.println("groupCount: " + matcher.groupCount());
-
-                    if (!matcher.find()) {
-                        System.out.println("No match found. Invalid initialState or regex error");
-                        return;
-                    }
-
-                    // String containerName = matcher.group(1);
-                    // System.out.println("containerName: " + containerName);
-                    String databaseImage = matcher.group(2);
-                    System.out.println("databaseImage: " + databaseImage);
-                    */
-
-                    /*
-                    Set<String> backupNodes = nodes.stream()
-                        .map(String::valueOf)
-                        .filter(node -> !node.equals(this.myNodeID.toString()))
-                        .map(String::toLowerCase)
-                        .collect(Collectors.toSet());
-                    */
 
                     // Must configure SSH so rsync works when sending data to backup replicas
                     xdnApp.multiFileInit(groupName, databaseImage, ipAddresses);
 
+                    Set<NodeIDType> backupNodes = nodes.stream()
+                        .filter(node -> !node.equals(myNodeID))
+                        .collect(Collectors.toSet());
+                    System.out.printf("backupNodes = %s\n", backupNodes);
+
+                    InitBackupPacket initPacket = new InitBackupPacket(groupName, initialState);
+                    GenericMessagingTask<NodeIDType, InitBackupPacket> m = new GenericMessagingTask<>(backupNodes.toArray(), initPacket);
+
+
+                    // send packet to all backup replicas
+                    try {
+                        this.messenger.send(m);
+                    } catch (IOException | JSONException e) {
+                        throw new RuntimeException(e);
+                    }
+
                     System.out.println("\n>>> Multi-file Initialization finished\n");
-                    // System.out.println(backupNodes);
-                    // System.out.println(xdnApp.getRecorderType());
                 }
             );
         }

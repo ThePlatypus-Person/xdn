@@ -1,4 +1,6 @@
 // To generate the class, from the project root directory:
+// The encoded request from the entry node.
+// bytes encoded_request = 4;
 // protoc --java_out=./src src/edu/umass/cs/primarybackup/proto/primary_backup_packet.proto
 
 syntax = "proto3";
@@ -61,4 +63,16 @@ message StartEpochPacket {
 
   // The encoded response from the Primary.
   uint32 primary_epoch = 4;
+}
+
+// InitBackupPacket: Elected Primary => All Nodes.
+message InitBackupPacket {
+  // unique ID of this packet.
+  int64 packet_id = 1;
+
+  // The service name.
+  string service_name = 2;
+
+  // ID of the entry node that first receive the request.
+  string initial_state = 3;
 }
