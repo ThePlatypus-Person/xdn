@@ -115,10 +115,10 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
 		long startProcessingTime = System.nanoTime();
         ExecutedCallback chainedCallback = callback;
 
-         System.out.printf(">>> %s:PBRCoordinator - coordinateRequest %s %s\n\n",
-                getMyID(), request.getClass().getSimpleName(),
-                request instanceof ReplicableClientRequest rcr
-                        ? rcr.getRequest().getClass().getSimpleName() : "null");
+        System.out.printf("%s:PBRC.coordinateRequest(service=%s)\n",
+            getMyID(), 
+            request.getServiceName()
+        );
 
         // if packet comes from client (i.e., ReplicableClientRequest), wrap the
         // containing request with RequestPacket, and re-chain the callback.
@@ -139,8 +139,9 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
                     // Log Time
                     long elapsedTime = System.nanoTime() - startProcessingTime;
                     String timeLog = String.format(
-                        "%50s %6.3fs", 
-                        "PrimaryBackupReplicaCoordinator.coordinateRequest()",
+                        "%s:%50s %6.3fs", 
+                        getMyID(),
+                        "PBRC.coordinateRequest()",
                         elapsedTime / 1000_000_000.0
                     );
                     System.out.println(timeLog);

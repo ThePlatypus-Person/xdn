@@ -431,6 +431,13 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         PaxosPacket.PaxosPacketType msgType = pp != null ? pp.getType()
                 : PaxosPacket.PaxosPacketType.NO_TYPE;
 
+
+        System.out.printf(
+            "%s:PISM.handlePaxosMessage(myID=%s, type=%s)\n",
+            this.getNodeID(),
+            this.getMyID(), msgType
+        );
+
         Level level = Level.FINEST;
         log.log(level,
                 "{0} starting handlePaxosMessage{3}({1}) {2}",
@@ -717,6 +724,16 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
                 PaxosPacketType.CHECKPOINT_STATE))
             return;
         // if (TESTPaxosConfig.isCrashed(this.getMyID()))return;
+
+        String recipients = "";
+        for (int r: mtask.recipients) {
+            recipients += r + " ";
+        }
+        recipients += "";
+        System.out.printf(
+            "%s:PISM.sendMessagingTask(type=%s, recipient=[%s])\n", 
+            this.getNodeID(), mtask.msgs[0].getType(), recipients.trim()
+        );
 
         log.log(Level.FINEST, "{0} sending: {1}", new Object[]{this, mtask});
         mtask.putPaxosIDVersion(this.getPaxosID(), this.getVersion());
@@ -1056,6 +1073,13 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         // DelayProfiler.updateCount("C_DIGESTED_ACCEPTS_RCVD",
         // accept.batchSize()+1);
 
+        String logOutput = String.format(
+            "%s:PISM.handleAccept(myID=%s, sender=%d)\n",
+            this.getNodeID(),
+            this.getMyID(), accept.sender
+        );
+        System.out.print(logOutput);
+
         AcceptPacket copy = accept;
         if (DIGEST_REQUESTS && !accept.hasRequestValue()) {
             if ((accept = this.paxosManager.match(accept)) == null) {
@@ -1079,23 +1103,16 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         if ((this.paxosState.getAccept(accept.slot) == null)
                 && (this.paxosState.getSlot() - accept.slot <= 0)) {
 
-            /*
-            System.out.println(String.format(
-                "PaxosInstanceStateMachien.handleAccept(myID=%s) calls incrOutstanding()",
-                this.getMyID()
-            ));
-            */
+            System.out.printf(
+                "%s:PISM.handleAccept(myID=%s, sender=%d) calls incrOutstanding()\n",
+                this.getNodeID(),
+                this.getMyID(), accept.sender
+            );
 
             this.paxosManager.incrOutstanding(accept.addDebugInfoDeep("a")); // stats
         }
 
         if (EXECUTE_UPON_ACCEPT) { // only for testing
-            /*
-            System.out.println(String.format(
-                "PaxosInstanceStateMachine.handleAccept(myID=%d) calls execute()",
-                this.getMyID()
-            ));
-            */ 
             PaxosInstanceStateMachine.execute(this, getPaxosManager(),
                     this.getApp(), accept, false);
             if (Util.oneIn(10))
@@ -1758,18 +1775,20 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
         String[] clientAddresses = Arrays.stream(decisions).map(
             req -> ((req.getClientAddress() == null) ? "null" : req.getClientAddress().toString())
         ).toArray(String[]::new);
-
-        /*
-        System.out.println(String.format(
-                "PaxosInstanceStateMachine.execute() - Client Addresses: %s",
-                Arrays.toString(clientAddresses)
-            )
-        );
-        */
             
 		for (RequestPacket requestPacket : decision.getRequestPackets()) {
 			boolean executed = false;
 			int retries = 0;
+
+            System.out.printf(
+                "%s:PISM.execute(myID=%s, service=%s, type=%s, return=%s, stop=%s)\n",
+                pism.getNodeID(),
+                paxosManager.getMyID(),
+                decision.getServiceName(),
+                decision.getRequestType(),
+                requestPacket.getEntryReplica() == paxosManager.getMyID() ? "true" : "false",
+                decision.stop ? "true" : "false"
+            );
 
             /*
             if (requestPacket.getClientAddress() == null) {
@@ -2030,6 +2049,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 	protected HotRestoreInfo tryPause() {
 		// boolean paused = false;
 		HotRestoreInfo hri = null;
+        Boolean success = false;
 		synchronized (this.paxosState) {
 			// Ugly nesting, not sure how else to do this correctly
 			synchronized (this.coordinator != null ? this.coordinator
@@ -2047,6 +2067,7 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 							PaxosCoordinator.getNodeSlotsIfActive(this.coordinator));
 					log.log(Level.FINE, "{0} pausing [{1}]", new Object[] {
 							this, hri });
+                    success = true;
 					// if (paused = this.paxosManager.getPaxosLogger().pause(
 					// getPaxosID(), hri.toString()))
 					this.forceStop();
@@ -2057,6 +2078,14 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 									this.coordinator });
 			}
 		}
+
+        System.out.printf(
+            "%s:PISM.tryPause(myID=%s, pauseStatus=%s)\n",
+            this.getNodeID(),
+            this.getMyID(),
+            (success ? "success" : "fail")
+        );
+
 		return hri;
 	}
 

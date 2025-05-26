@@ -164,12 +164,15 @@ public class PaxosManager<NodeIDType> {
             synchronized (this.requests) {
                 // Logging
                 String logOutput = String.format(
-                    "enqueue(myID=%s) - putIfAbsent(clientAddr=%s)\n", 
+                    "%s:PM.Outstanding.enqueue(myID=%s) - putIfAbsent(clientAddr=%s), entryReplica=%d, requests=%s\n", 
+                    messenger.getMyID(),
                     myID,
                     ((rc.requestPacket.getClientAddress() == null) ? "null" 
-                     : rc.requestPacket.getClientAddress().toString())
+                     : rc.requestPacket.getClientAddress().toString()),
+                    rc.requestPacket.getEntryReplica(),
+                    this.requests.keySet()
                 );
-                //System.out.print(logOutput);
+                System.out.print(logOutput);
 
                 // Core Function
                 prev = this.requests.putIfAbsent(rc.requestPacket.requestID, rc);
@@ -217,9 +220,10 @@ public class PaxosManager<NodeIDType> {
             RequestAndCallback queued = this.requests.get(request.requestID);
             
             String logOutput = String.format(
-                "dequeue(myID=%s, requestID=%d) - entryReplica=%d\n", 
-                myID, request.requestID, request.getEntryReplica()
+                "%s:PM.Outstanding.dequeue(myID=%s, requestID=%d) - entryReplica=%d\n", 
+                messenger.getMyID(), myID, request.requestID, request.getEntryReplica()
             );
+            System.out.print(logOutput);
 
             Boolean queuedNull = (queued == null);
             logOutput = String.format("%s\t>> [%b] %s\n", logOutput,
@@ -331,6 +335,11 @@ public class PaxosManager<NodeIDType> {
     // called by PaxosInstanceStateMachine as execute callback
     protected boolean executed(RequestPacket requestPacket, Request request,
                                boolean sendResponse) {
+        System.out.printf(
+            "%s:PM.executed(myID=%d, entryReplica=%d)\n", 
+            this.getNodeID(), myID, requestPacket.getEntryReplica()
+        );
+
         // PaxosConfig.log.log(Level.INFO, String.format("PaxosManager.executed(myID=%d, sendResponse=%b)", myID, sendResponse));
 
         //System.out.println("[]==[] executed() calls dequeue()");
@@ -1165,6 +1174,11 @@ public class PaxosManager<NodeIDType> {
                     if (request instanceof RequestPacket) // base and super types
                         ((RequestPacket) request).addDebugInfo("i", myID);
 
+                    System.out.printf(
+                        "\t>> %s:PM.handlePaxosPacket(msgType=%s)\n",
+                        this.getNodeID(), paxosPacketType
+                    );
+
                     PaxosInstanceStateMachine pism = this.getInstance(request
                             .getPaxosID());
 
@@ -1229,6 +1243,16 @@ public class PaxosManager<NodeIDType> {
                            ExecutedCallback callback) {
         if (this.isClosed())
             return null;
+
+        String logOutput = String.format(
+            "%s:PM.propose(myID=%s, clientAddr=%s, entry=%d)\n",
+            messenger.getMyID(),
+            this.myID, 
+            ((requestPacket.getClientAddress() == null) ? "null" 
+             : requestPacket.getClientAddress().toString()),
+            requestPacket.getEntryReplica()
+        );
+        System.out.print(logOutput);
 
         boolean matched = false;
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
@@ -3000,6 +3024,11 @@ public class PaxosManager<NodeIDType> {
              * run out of memory. */
             // Thread.currentThread().setPriority(Thread.MIN_PRIORITY);
             try {
+                System.out.printf(
+                    "%s:PM.Deactivator.run(myID=%d)\n", 
+                    getNodeID(), getMyID()
+                );
+
                 syncAndDeactivate();
             } catch (Exception e) {
                 // must continue running despite any exceptions

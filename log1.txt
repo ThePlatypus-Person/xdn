@@ -1,0 +1,553 @@
+servers=[AR0 AR1 AR2 RC0]
+[edu.umass.cs.xdn.XdnGigapaxosApp]
+java  -cp /home/jun/LongTerm/University/MataKuliah/Semester6/xdn/build/classes:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-1.0.10.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-nio-src.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/nio-1.2.1.jar -ea -Djavax.net.ssl.keyStorePassword=qwerty -Djavax.net.ssl.trustStorePassword=qwerty -Djavax.net.ssl.keyStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/keyStore.jks -Djavax.net.ssl.trustStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/trustStore.jks -Djava.util.logging.config.file=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/logging.properties -Dlog4j.configuration=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/log4j.properties -DgigapaxosConfig=conf/gigapaxos.local.properties -Djdk.httpclient.allowRestrictedHeaders=connection,content-length,host -DgigapaxosConfig=conf/gigapaxos.local.properties         edu.umass.cs.reconfiguration.ReconfigurableNode AR0&
+java  -cp /home/jun/LongTerm/University/MataKuliah/Semester6/xdn/build/classes:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-1.0.10.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-nio-src.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/nio-1.2.1.jar -ea -Djavax.net.ssl.keyStorePassword=qwerty -Djavax.net.ssl.trustStorePassword=qwerty -Djavax.net.ssl.keyStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/keyStore.jks -Djavax.net.ssl.trustStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/trustStore.jks -Djava.util.logging.config.file=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/logging.properties -Dlog4j.configuration=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/log4j.properties -DgigapaxosConfig=conf/gigapaxos.local.properties -Djdk.httpclient.allowRestrictedHeaders=connection,content-length,host -DgigapaxosConfig=conf/gigapaxos.local.properties         edu.umass.cs.reconfiguration.ReconfigurableNode AR1&
+java  -cp /home/jun/LongTerm/University/MataKuliah/Semester6/xdn/build/classes:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-1.0.10.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-nio-src.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/nio-1.2.1.jar -ea -Djavax.net.ssl.keyStorePassword=qwerty -Djavax.net.ssl.trustStorePassword=qwerty -Djavax.net.ssl.keyStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/keyStore.jks -Djavax.net.ssl.trustStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/trustStore.jks -Djava.util.logging.config.file=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/logging.properties -Dlog4j.configuration=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/log4j.properties -DgigapaxosConfig=conf/gigapaxos.local.properties -Djdk.httpclient.allowRestrictedHeaders=connection,content-length,host -DgigapaxosConfig=conf/gigapaxos.local.properties         edu.umass.cs.reconfiguration.ReconfigurableNode AR2&
+java  -cp /home/jun/LongTerm/University/MataKuliah/Semester6/xdn/build/classes:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-1.0.10.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/gigapaxos-nio-src.jar:/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/jars/nio-1.2.1.jar -ea -Djavax.net.ssl.keyStorePassword=qwerty -Djavax.net.ssl.trustStorePassword=qwerty -Djavax.net.ssl.keyStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/keyStore.jks -Djavax.net.ssl.trustStore=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/trustStore.jks -Djava.util.logging.config.file=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/logging.properties -Dlog4j.configuration=/home/jun/LongTerm/University/MataKuliah/Semester6/xdn/conf/log4j.properties -DgigapaxosConfig=conf/gigapaxos.local.properties -Djdk.httpclient.allowRestrictedHeaders=connection,content-length,host -DgigapaxosConfig=conf/gigapaxos.local.properties         edu.umass.cs.reconfiguration.ReconfigurableNode RC0&
+>> Initializing gigapaxos server [ AR0:/127.0.0.1:2000 ] ...
+>> Initializing gigapaxos server [ AR2:/127.0.0.1:2002 ] ...
+>> Initializing gigapaxos server [ AR1:/127.0.0.1:2001 ] ...
+>> Initializing gigapaxos server [ RC0:/127.0.0.1:3000 ] ...
+ReconfigurableNode.createApp() - ID: AR0
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ReconfigurableNode.createApp() - ID: AR2
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ReconfigurableNode.createApp() - ID: AR1
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+>> XDNGigapaxosApp initialization ...
+>> XDNReplicaCoordinator - init at node AR0
+>> XDNGigapaxosApp initialization ...
+>> XDNReplicaCoordinator - init at node AR2
+>> XDNGigapaxosApp initialization ...
+>> XDNReplicaCoordinator - init at node AR1
+ActiveReplica.constructor()
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ActiveReplica.constructor()
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+>> server [AR0] ready
+>> server [AR2] ready
+ActiveReplica.constructor()
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+>> server [AR1] ready
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)
+ActiveReplica.constructor()
+ AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+>> server [RC0] ready
+HttpReconfigurator ready on /0.0.0.0:3300
+RC0:PM.propose(myID=80927, clientAddr=null, entry=-1)
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=-1, requests=[]
+	>> RC0:PM.handlePaxosPacket(msgType=REQUEST)
+RC0:PISM.handlePaxosMessage(myID=80927, type=REQUEST)
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=80927, requests=[5398917465318073344]
+RC0:PISM.sendMessagingTask(type=ACCEPT, recipient=[80927])
+{
+ "B": "0:80927",
+ "PT": 3,
+ "QV": "{\"START_EPOCH\":{\"INIT_TIME\":1747811668761,\"MERGEES\":[],\"SENDER\":\"RC0\",\"RECONFIGURE_UPON_ACTIVES_CHANGE\":\"DEFAULT\",\"type\":226,\"NAME\":\"bookcatalog\",\"CUR_EPOCH_GROUP\":[\"AR1\",\"AR2\",\"AR0\"],\"INITIATOR\":\"RC0\",\"PASSIVE\":false,\"CREATOR\":\"/127.0.0.1:37752\",\"EPOCH\":0,\"PREV_EPOCH_GROUP\":[],\"INITIAL_STATE\":\"xdn:init:{\\\"consistency\\\":\\\"sequential\\\",\\\"deterministic\\\":false,\\\"image\\\":\\\"fadhilkurnia/xdn-bookcatalog\\\",\\\"name\\\":\\\"bookcatalog\\\",\\\"port\\\":80,\\\"state\\\":\\\"/app/data/\\\"}\",\"RECEIVER\":\"/127.0.0.1:3300\"},\"SENDER\":\"RC0\",\"EPOCH\":0,\"COORDINATED\":false,\"REQUEST_TYPE\":\"RECONFIGURATION_INTENT\",\"type\":238,\"QID\":4539907923468349440,\"NAME\":\"bookcatalog\",\"INITIATOR\":\"RC0\"}",
+ "E": 80927,
+ "type": 90,
+ "QID": 5398917465318073344,
+ "ET": 1747811668769,
+ "SNDR": 80927,
+ "GC_S": -1,
+ "S": 1,
+ "QF": true,
+ "V": 0,
+ "ID": "RC0"
+}
+	>> RC0:PM.handlePaxosPacket(msgType=ACCEPT)
+RC0:PISM.handlePaxosMessage(myID=80927, type=ACCEPT)
+RC0:PISM.handleAccept(myID=80927, sender=80927)
+RC0:PISM.handleAccept(myID=80927, sender=80927) calls incrOutstanding()
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=80927, requests=[5398917465318073344]
+RC0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[80927])
+	>> RC0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+RC0:PISM.handlePaxosMessage(myID=80927, type=ACCEPT_REPLY)
+RC0:PISM.sendMessagingTask(type=DECISION, recipient=[80927])
+	>> RC0:PM.handlePaxosPacket(msgType=DECISION)
+RC0:PISM.handlePaxosMessage(myID=80927, type=DECISION)
+RC0:PISM.execute(myID=80927, service=RC0, type=DECISION)
+RC0:PM.executed(myID=80927, entryReplica=80927)
+RC0:PM.Outstanding.dequeue(myID=80927, requestID=5398917465318073344) - entryReplica=80927
+ActiveReplica.handleStartEpoch() - ID: AR1 AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ActiveReplica.handleStartEpoch().batchedCreate() - ID: AR1
+ActiveReplica.handleStartEpoch() - ID: AR0 AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ActiveReplica.handleStartEpoch().batchedCreate() - ID: AR0
+>> AR0 PrimaryBackupManager - createPrimaryBackupInstance | groupName: bookcatalog, placementEpoch: 0, nodes: [AR0, AR1, AR2]
+ActiveReplica.handleStartEpoch() - ID: AR2 AR: {AR1=/127.0.0.1:2001, AR2=/127.0.0.1:2002, AR0=/127.0.0.1:2000}
+ActiveReplica.handleStartEpoch().batchedCreate() - ID: AR2
+>> AR1 PrimaryBackupManager - createPrimaryBackupInstance | groupName: bookcatalog, placementEpoch: 0, nodes: [AR0, AR1, AR2]
+>> AR2 PrimaryBackupManager - createPrimaryBackupInstance | groupName: bookcatalog, placementEpoch: 0, nodes: [AR0, AR1, AR2]
+>> XdnGigapaxosApp:ar0 - restore name=bookcatalog state=null
+>> XDNGigapaxosApp:ar0 - checkpoint ... name=bookcatalog
+>> XdnGigapaxosApp:ar2 - restore name=bookcatalog state=null
+>> XDNGigapaxosApp:ar2 - checkpoint ... name=bookcatalog
+>> XdnGigapaxosApp:ar1 - restore name=bookcatalog state=null
+>> XDNGigapaxosApp:ar1 - checkpoint ... name=bookcatalog
+>> AR0 Initializing primary epoch for bookcatalog
+>> XDNReplicaCoordinator:AR2 name=bookcatalog coordinator=PrimaryBackupReplicaCoordinator
+AR0:PM.propose(myID=65055, clientAddr=null, entry=-1)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=null), entryReplica=-1, requests=[]
+	>> AR0:PM.handlePaxosPacket(msgType=REQUEST)
+>> XDNReplicaCoordinator:AR1 name=bookcatalog coordinator=PrimaryBackupReplicaCoordinator
+AR0:PISM.handlePaxosMessage(myID=65055, type=REQUEST)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=null), entryReplica=65055, requests=[3037620552785233920]
+AR0:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "0:65055",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aH\bû®\u009dÆ¼¥\u0094ñ}\u0012\u000bbookcatalog\u001a\u0003AR0",
+ "E": 65055,
+ "type": 90,
+ "QID": 3037620552785233920,
+ "ET": 1747811669369,
+ "SNDR": 65055,
+ "GC_S": -1,
+ "S": 1,
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog"
+}
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65055)
+AR0:PISM.handleAccept(myID=65055, sender=65055) calls incrOutstanding()
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=null), entryReplica=65055, requests=[3037620552785233920]
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT_REPLY)
+RC0:PM.propose(myID=80927, clientAddr=null, entry=-1)
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=-1, requests=[]
+	>> RC0:PM.handlePaxosPacket(msgType=REQUEST)
+RC0:PISM.handlePaxosMessage(myID=80927, type=REQUEST)
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=80927, requests=[7941825461478505472]
+RC0:PISM.sendMessagingTask(type=ACCEPT, recipient=[80927])
+{
+ "B": "0:80927",
+ "PT": 3,
+ "QV": "{\"START_EPOCH\":{\"FIRST_PREV_EPOCH_CANDIDATE\":\"RC0\",\"INIT_TIME\":1747811668761,\"MERGEES\":[],\"SENDER\":\"RC0\",\"RECONFIGURE_UPON_ACTIVES_CHANGE\":\"DEFAULT\",\"type\":226,\"NAME\":\"bookcatalog\",\"CUR_EPOCH_GROUP\":[\"AR0\",\"AR1\",\"AR2\"],\"INITIATOR\":\"RC0\",\"PASSIVE\":false,\"CREATOR\":\"/127.0.0.1:37752\",\"EPOCH\":0,\"PREV_EPOCH_GROUP\":[],\"INITIAL_STATE\":\"xdn:init:{\\\"consistency\\\":\\\"sequential\\\",\\\"deterministic\\\":false,\\\"image\\\":\\\"fadhilkurnia/xdn-bookcatalog\\\",\\\"name\\\":\\\"bookcatalog\\\",\\\"port\\\":80,\\\"state\\\":\\\"/app/data/\\\"}\",\"RECEIVER\":\"/127.0.0.1:3300\",\"KEY\":\"WaitAckStartEpochRC0:bookcatalog:0\"},\"SENDER\":\"RC0\",\"EPOCH\":0,\"COORDINATED\":false,\"REQUEST_TYPE\":\"RECONFIGURATION_COMPLETE\",\"type\":238,\"QID\":2122819145881933824,\"KEY\":\"WaitAckStartEpochRC0:bookcatalog:0\",\"NAME\":\"bookcatalog\",\"INITIATOR\":\"RC0\"}",
+ "E": 80927,
+ "type": 90,
+ "QID": 7941825461478505472,
+ "ET": 1747811669462,
+ "SNDR": 80927,
+ "GC_S": 0,
+ "S": 2,
+ "QF": true,
+ "V": 0,
+ "ID": "RC0"
+}
+	>> RC0:PM.handlePaxosPacket(msgType=ACCEPT)
+RC0:PISM.handlePaxosMessage(myID=80927, type=ACCEPT)
+RC0:PISM.handleAccept(myID=80927, sender=80927)
+RC0:PISM.handleAccept(myID=80927, sender=80927) calls incrOutstanding()
+RC0:PM.Outstanding.enqueue(myID=80927) - putIfAbsent(clientAddr=null), entryReplica=80927, requests=[7941825461478505472]
+RC0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[80927])
+	>> RC0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+RC0:PISM.handlePaxosMessage(myID=80927, type=ACCEPT_REPLY)
+RC0:PISM.sendMessagingTask(type=DECISION, recipient=[80927])
+	>> RC0:PM.handlePaxosPacket(msgType=DECISION)
+RC0:PISM.handlePaxosMessage(myID=80927, type=DECISION)
+RC0:PISM.execute(myID=80927, service=RC0, type=DECISION)
+	>> AR2:PM.handlePaxosPacket(msgType=ACCEPT)
+	>> AR1:PM.handlePaxosPacket(msgType=ACCEPT)
+>> XDNReplicaCoordinator:AR0 name=bookcatalog coordinator=PrimaryBackupReplicaCoordinator
+AR1:PISM.handlePaxosMessage(myID=65056, type=ACCEPT)
+AR2:PISM.handlePaxosMessage(myID=65057, type=ACCEPT)
+AR2:PISM.handleAccept(myID=65057, sender=65055)
+AR1:PISM.handleAccept(myID=65056, sender=65055)
+AR1:PISM.handleAccept(myID=AR2:PISM.handleAccept(myID=65057, sender=65056, sender=65055) calls incrOutstanding()
+AR1:PM.Outstanding.enqueue(myID=65056) - putIfAbsent(clientAddr=/127.0.0.1:34692), entryReplica=65055, requests=[]
+65055) calls incrOutstanding()
+AR2:PM.Outstanding.enqueue(myID=65057) - putIfAbsent(clientAddr=/127.0.0.1:60750), entryReplica=65055, requests=[]
+AR2:PISM.sendMessagingTask(type=PREPAREAR1:PISM.sendMessagingTask(type=PREPARE, recipient=[65055 65056 65057])
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE)
+RC0:PM.executed(myID=80927, entryReplica=80927)
+RC0:PM.Outstanding.dequeue(myID=80927, requestID=7941825461478505472) - entryReplica=80927
+, recipient=[65055 65056 65057])
+AR1	>> :PISM.sendMessagingTask(type=AR2PREPARE_REPLY:PM.handlePaxosPacket(msgType=, recipient=[PREPARE65056)
+])
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE)
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE_REPLY)
+AR1:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+AR2:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65057])
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE)
+AR2:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR2:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE_REPLY)
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE)
+	>> AR2:PM.handlePaxosPacket(msgType=PREPARE)
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE)
+AR2:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65056])
+AR0:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65056])
+AR1:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65057])
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE_REPLY)
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE_REPLY)
+	>> 	>> AR2:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE_REPLY)
+AR0:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=BATCHED_ACCEPT_REPLY)
+AR0:PISM.sendMessagingTask(type=DECISION, recipient=[65055 65056 65057])
+	>> AR0:PM.handlePaxosPacket(msgType=DECISION)
+AR0:PISM.handlePaxosMessage(myID=65055, type=DECISION)
+AR2:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "1:65057",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aH\bû®\u009dÆ¼¥\u0094ñ}\u0012\u000bbookcatalog\u001a\u0003AR0",
+ "E": 65055,
+ "type": 90,
+ "QID": 3037620552785233920,
+ "ET": 1747811669369,
+ "SNDR": 65057,
+ "GC_S": 1,
+ "S": 1,
+ "LA": "/127.0.0.1:2002",
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog",
+ "CA": "/127.0.0.1:60750"
+}
+	>> AR2:PM.handlePaxosPacket(msgType=ACCEPT)
+AR2:PISM.handlePaxosMessage(myID=65057, type=ACCEPT)
+AR2:PISM.handleAccept(myID=65057, sender=65057)
+AR2:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65057])
+	>> AR2:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=ACCEPT_REPLY)
+	>> AR1:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR1:PISM.handlePaxosMessage(myID=65056, type=BATCHED_COMMIT)
+AR0:PISM.execute(myID=65055, service=bookcatalog, type=DECISION)
+AR0:PM.executed(myID=65055, entryReplica=65055)
+AR0:PM.Outstanding.dequeue(myID=65055, requestID=3037620552785233920) - entryReplica=65055
+
+
+>> AR0 I'M THE PRIMARY NOW FOR bookcatalog!!
+
+>> Handling non-deterministic service initialization
+>> XdnGigapaxosApp:ar0 - restore name=bookcatalog state=xdn:init:{"consistency":"sequential","deterministic":false,"image":"fadhilkurnia/xdn-bookcatalog","name":"bookcatalog","port":80,"state":"/app/data/"}
+AR1:PISM.execute(myID=65056, service=bookcatalog, type=DECISION)
+	>> AR2:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR2:PISM.handlePaxosMessage(myID=65057, type=BATCHED_COMMIT)
+Failed to remove c0.e0.bookcatalog.ar0.xdn.io. Container doesn't exist.
+command: docker network create net::ar0:bookcatalog
+AR1:PM.executed(myID=65056, entryReplica=65055)
+AR1:PM.Outstanding.dequeue(myID=65056, requestID=3037620552785233920) - entryReplica=65055
+	>> AR1:PM.handlePaxosPacket(msgType=ACCEPT)
+AR1:PISM.handlePaxosMessage(myID=65056, type=ACCEPT)
+AR1:PISM.handleAccept(myID=65056, sender=65057)
+AR1:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65057])
+	>> AR2:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=BATCHED_ACCEPT_REPLY)
+AR2:PISM.sendMessagingTask(type=DECISION, recipient=[65055 65056 65057])
+	>> AR2:PM.handlePaxosPacket(msgType=DECISION)
+AR2:PISM.handlePaxosMessage(myID=65057, type=DECISION)
+	>> AR1:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR1:PISM.handlePaxosMessage(myID=65056, type=BATCHED_COMMIT)
+AR2:PISM.execute(myID=65057, service=bookcatalog, type=DECISION)
+AR2:PM.executed(myID=65057, entryReplica=65055)
+AR2:PM.Outstanding.dequeue(myID=65057, requestID=3037620552785233920) - entryReplica=65055
+output:
+c1db9613c62a10f21f5355ac1ab724fe25cc967f9d41c54ffe541613689db096
+
+exit code: 0
+>>> serviceName: bookcatalog
+>>> stateDirMountSource: /tmp/xdn/state/rsync/ar0/mnt/bookcatalog/e0/
+>>> stateDirMountTarget: /app/data/
+command: docker run -d --restart unless-stopped --name=c0.e0.bookcatalog.ar0.xdn.io --hostname=bookcatalog --network=net::ar0:bookcatalog --publish=54121:80  --mount type=bind,source=/tmp/xdn/state/rsync/ar0/mnt/bookcatalog/e0/,target=/app/data/  -v /etc/passwd:/etc/passwd:ro --user=1000:1000 fadhilkurnia/xdn-bookcatalog
+output:
+e14b566b80905e5312d1d1b853e67be790003fd07fb174963edb76ccf7786359
+
+exit code: 0
+ar0:XdnGigapaxosApp - Storing bookcatalog into services
+Database unknown. Timeout for 5 seconds to wait for database to initialize...
+Waiting another 5 seconds for migration...
+RsyncStateDiff backupNodes = [ar2, ar1]
+RsyncStateDiff ipAddresses = {ar2=/127.0.0.1, ar1=/127.0.0.1, ar0=/127.0.0.1}
+Primary: /tmp/xdn/state/rsync/ar0/
+Backups: {ar2=/tmp/xdn/state/rsync/ar2/, ar1=/tmp/xdn/state/rsync/ar1/}
+command: rsync -avz --delete --human-readable /tmp/xdn/state/rsync/ar0//mnt/bookcatalog/ /tmp/xdn/state/rsync/ar0//snp/bookcatalog/
+output:
+sending incremental file list
+./
+
+sent 112 bytes  received 20 bytes  264,00 bytes/sec
+total size is 12,29K  speedup is 93,09
+
+exit code: 0
+command: rsync -avz --delete --human-readable --include='mnt/' --include='mnt/bookcatalog/' --include='mnt/bookcatalog/***' --include='snp/' --include='snp/bookcatalog/' --include='snp/bookcatalog/***' --include='diff/' --include='diff/bookcatalog/' --include='diff/bookcatalog/***' --exclude='*' /tmp/xdn/state/rsync/ar0/ jun@127.0.0.1:/tmp/xdn/state/rsync/ar2/
+output:
+sending incremental file list
+diff/
+diff/bookcatalog/
+mnt/
+mnt/bookcatalog/
+mnt/bookcatalog/e0/
+mnt/bookcatalog/e0/data.db
+snp/
+snp/bookcatalog/
+snp/bookcatalog/e0/
+snp/bookcatalog/e0/data.db
+
+sent 885 bytes  received 86 bytes  1,94K bytes/sec
+total size is 24,58K  speedup is 25,31
+
+exit code: 0
+command: rsync -avz --delete --human-readable --include='mnt/' --include='mnt/bookcatalog/' --include='mnt/bookcatalog/***' --include='snp/' --include='snp/bookcatalog/' --include='snp/bookcatalog/***' --include='diff/' --include='diff/bookcatalog/' --include='diff/bookcatalog/***' --exclude='*' /tmp/xdn/state/rsync/ar0/ jun@127.0.0.1:/tmp/xdn/state/rsync/ar1/
+output:
+sending incremental file list
+./
+diff/
+diff/bookcatalog/
+mnt/
+mnt/bookcatalog/
+mnt/bookcatalog/e0/
+mnt/bookcatalog/e0/data.db
+snp/
+snp/bookcatalog/
+snp/bookcatalog/e0/
+snp/bookcatalog/e0/data.db
+
+sent 892 bytes  received 93 bytes  1,97K bytes/sec
+total size is 24,58K  speedup is 24,95
+
+exit code: 0
+backupNodes = [AR1, AR2]
+
+>>> Multi-file Initialization finished
+
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE)
+AR0:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65057])
+AR1:PBRCoordinator.coordinateRequest(service=bookcatalog)
+	>> AR0:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=BATCHED_ACCEPT_REPLY)
+>> XdnGigapaxosApp:ar1 - restore name=bookcatalog state=xdn:init:{"consistency":"sequential","deterministic":false,"image":"fadhilkurnia/xdn-bookcatalog","name":"bookcatalog","port":80,"state":"/app/data/"}
+AR2:PBRCoordinator.coordinateRequest(service=bookcatalog)
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65057)
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65057])
+>> XdnGigapaxosApp:ar2 - restore name=bookcatalog state=xdn:init:{"consistency":"sequential","deterministic":false,"image":"fadhilkurnia/xdn-bookcatalog","name":"bookcatalog","port":80,"state":"/app/data/"}
+	>> AR2:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE_REPLY)
+	>> AR0:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=BATCHED_COMMIT)
+	>> AR2:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=BATCHED_ACCEPT_REPLY)
+Failed to remove c0.e0.bookcatalog.ar1.xdn.io. Container doesn't exist.
+command: docker network create net::ar1:bookcatalog
+Failed to remove c0.e0.bookcatalog.ar2.xdn.io. Container doesn't exist.
+command: docker network create net::ar2:bookcatalog
+output:
+85ebda7b62580213b19bb426594fa69d99487ad8fb2bd013915edc4da6f05971
+
+exit code: 0
+>>> serviceName: bookcatalog
+>>> stateDirMountSource: /tmp/xdn/state/rsync/ar1/mnt/bookcatalog/e0/
+>>> stateDirMountTarget: /app/data/
+output:
+7d61113016fdd829123ffad0b219cd3d436dae38cb78209dba386aafda3ab3f2
+
+exit code: 0
+>>> serviceName: bookcatalog
+>>> stateDirMountSource: /tmp/xdn/state/rsync/ar2/mnt/bookcatalog/e0/
+>>> stateDirMountTarget: /app/data/
+command: docker run -d --restart unless-stopped --name=c0.e0.bookcatalog.ar1.xdn.io --hostname=bookcatalog --network=net::ar1:bookcatalog --publish=57065:80  --mount type=bind,source=/tmp/xdn/state/rsync/ar1/mnt/bookcatalog/e0/,target=/app/data/  -v /etc/passwd:/etc/passwd:ro --user=1000:1000 fadhilkurnia/xdn-bookcatalog
+command: docker run -d --restart unless-stopped --name=c0.e0.bookcatalog.ar2.xdn.io --hostname=bookcatalog --network=net::ar2:bookcatalog --publish=61647:80  --mount type=bind,source=/tmp/xdn/state/rsync/ar2/mnt/bookcatalog/e0/,target=/app/data/  -v /etc/passwd:/etc/passwd:ro --user=1000:1000 fadhilkurnia/xdn-bookcatalog
+output:
+1bc93ae98c2640959f103f190ededd2e0c763f7b16c8133541926b3c963e1f14
+
+exit code: 0
+ar1:XdnGigapaxosApp - Storing bookcatalog into services
+output:
+34554631ac718633eb621558dbeffc6230d27aa2f6236dd741ce18eb8591933e
+
+exit code: 0
+ar2:XdnGigapaxosApp - Storing bookcatalog into services
+
+AR0:GET - bookcatalog:/view
+AR0:PBRCoordinator.coordinateRequest(service=bookcatalog)
+AR0:PBManager.executeRequestCoordinateStateDiff(service=bookcatalog)
+AR0:PISM.sendMessagingTask(type=PREPARE, recipient=[65055 65056 65057])
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE)
+AR0:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE_REPLY)
+	>> AR1:PM.handlePaxosPacket(msgType=PREPARE)
+AR1:PISM.handlePaxosMessage(myID=65056, type=PREPARE)
+	>> AR2:PM.handlePaxosPacket(msgType=PREPARE)
+AR2:PISM.handlePaxosMessage(myID=65057, type=PREPARE)
+AR1:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65055])
+AR2:PISM.sendMessagingTask(type=PREPARE_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE_REPLY)
+	>> AR0:PM.handlePaxosPacket(msgType=PREPARE_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=PREPARE_REPLY)
+AR0:PBManager.paxosManager.propose(statediff, epoch=AR0:0)
+AR0:PM.propose(myID=65055, clientAddr=/127.0.0.1:2000, entry=-1)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=-1, requests=[]
+	>> AR0:PM.handlePaxosPacket(msgType=REQUEST)
+AR0:PISM.handlePaxosMessage(myID=65055, type=REQUEST)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[2140632981294424064]
+AR0:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "2:65055",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aM\b\u0084\u0095\u0090\u009cÇÍÊ¯O\u0012\u000bbookcatalog\u001a\u0003AR0*{xdn:sd:eJybz8DAIA/Ejf83emVnrGFk1GNgEMgIq9X9sHHyTOm/jgwMzS+Ys0rzIOSCGewpiSWJeilJDAwGH/T5q6WXNAI1M/xnBJE8DAyeQMqAAcxjAAAoeBhp",
+ "E": 65055,
+ "type": 90,
+ "QID": 2140632981294424064,
+ "ET": 1747811697445,
+ "SNDR": 65055,
+ "GC_S": 2,
+ "S": 2,
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog",
+ "CA": "/127.0.0.1:2000"
+}
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65055)
+AR0:PISM.handleAccept(myID=65055, sender=65055) calls incrOutstanding()
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[2140632981294424064]
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT_REPLY)
+	>> AR2:PM.handlePaxosPacket(msgType=ACCEPT)
+AR2:PISM.handlePaxosMessage(myID=65057, type=ACCEPT)
+AR2:PISM.handleAccept(myID=65057, sender=65055)
+AR2:PISM.handleAccept(myID=65057, sender=65055) calls incrOutstanding()
+AR2:PM.Outstanding.enqueue(myID=65057) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[]
+AR2:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR1:PM.handlePaxosPacket(msgType=ACCEPT)
+AR1:PISM.handlePaxosMessage(myID=65056, type=ACCEPT)
+AR1:PISM.handleAccept(myID=65056, sender=65055)
+AR1:PISM.handleAccept(myID=65056, sender=65055) calls incrOutstanding()
+AR1:PM.Outstanding.enqueue(myID=65056) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[]
+AR1:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=BATCHED_ACCEPT_REPLY)
+AR0:PISM.sendMessagingTask(type=DECISION, recipient=[65055 65056 65057])
+	>> AR0:PM.handlePaxosPacket(msgType=DECISION)
+AR0:PISM.handlePaxosMessage(myID=65055, type=DECISION)
+AR0:PISM.execute(myID=65055, service=bookcatalog, type=DECISION)
+AR0:PM.executed(myID=65055, entryReplica=65055)
+AR0:PM.Outstanding.dequeue(myID=65055, requestID=2140632981294424064) - entryReplica=65055
+AR0:PBManager epoch=AR0:0 is accepted
+	>> AR1:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR1:PISM.handlePaxosMessage(myID=65056, type=BATCHED_COMMIT)
+AR1:PISM.execute(myID=65056, service=bookcatalog, type=DECISION)
+	>> AR2:PM.handlePaxosPacket(msgType=BATCHED_COMMIT)
+AR2:PISM.handlePaxosMessage(myID=65057, type=BATCHED_COMMIT)
+AR2:PISM.execute(myID=65057, service=bookcatalog, type=DECISION)
+PrimaryBackupReplicaCoordinator.coordinateRequest()  0.192s
+	>> AR0:PM.handlePaxosPacket(msgType=BATCHED_ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=BATCHED_ACCEPT_REPLY)
+
+AR0:GET - bookcatalog:/api/books
+AR0:PBRCoordinator.coordinateRequest(service=bookcatalog)
+AR0:PBManager.executeRequestCoordinateStateDiff(service=bookcatalog)
+AR0:PBManager.paxosManager.propose(statediff, epoch=AR0:0)
+AR0:PM.propose(myID=65055, clientAddr=/127.0.0.1:2000, entry=-1)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=-1, requests=[]
+	>> AR0:PM.handlePaxosPacket(msgType=REQUEST)
+AR0:PISM.handlePaxosMessage(myID=65055, type=REQUEST)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[3623356245438476288]
+AR0:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "2:65055",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aM\b\u0092áÇ\u009f³Ö²£W\u0012\u000bbookcatalog\u001a\u0003AR0*{xdn:sd:eJybz8DAIA/Ejf8/umdnrGFk1GNgEMgIq9X9sHHyTOm/jgwMzS+Ys0rzIOSCGewpiSWJeilJDAwGH/T5q6WXNAI1M/xnBJE8DAyeQMqAAcxjAAA7yBim",
+ "E": 65055,
+ "type": 90,
+ "QID": 3623356245438476288,
+ "ET": 1747811697799,
+ "SNDR": 65055,
+ "GC_S": 2,
+ "S": 3,
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog",
+ "CA": "/127.0.0.1:2000"
+}
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65055)
+AR0:PISM.handleAccept(myID=65055, sender=65055) calls incrOutstanding()
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[3623356245438476288]
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT_REPLY)
+
+AR0:POST - bookcatalog:/api/books
+AR0:PBRCoordinator.coordinateRequest(service=bookcatalog)
+AR0:PBManager.executeRequestCoordinateStateDiff(service=bookcatalog)
+AR0:PBManager.paxosManager.propose(statediff, epoch=AR0:0)
+AR0:PM.propose(myID=65055, clientAddr=/127.0.0.1:2000, entry=-1)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=-1, requests=[3623356245438476288]
+	>> AR0:PM.handlePaxosPacket(msgType=REQUEST)
+AR0:PISM.handlePaxosMessage(myID=65055, type=REQUEST)
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[429267557044523008, 3623356245438476288]
+AR0:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "2:65055",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aM\b\u0092áÇ\u009f³Ö²£W\u0012\u000bbookcatalog\u001a\u0003AR0*{xdn:sd:eJybz8DAIA/Ejf8/umdnrGFk1GNgEMgIq9X9sHHyTOm/jgwMzS+Ys0rzIOSCGewpiSWJeilJDAwGH/T5q6WXNAI1M/xnBJE8DAyeQMqAAcxjAAA7yBim",
+ "E": 65055,
+ "type": 90,
+ "QID": 3623356245438476288,
+ "ET": 1747811697799,
+ "SNDR": 65055,
+ "GC_S": 2,
+ "S": 3,
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog",
+ "CA": "/127.0.0.1:2000"
+}
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65055)
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT_REPLY)
+AR0:PISM.sendMessagingTask(type=ACCEPT, recipient=[65055 65056 65057])
+{
+ "B": "2:65055",
+ "PT": 3,
+ "QV": "\u0000\u0000\u008aM\b§óÌõ\u008eÜÕ\u009bD\u0012\u000bbookcatalog\u001a\u0003AR0*\u0093\u0004xdn:sd:eJybz8DAIA/Ejf/tzLMz1jAy6jEwCGTU1ep+qHZcJvXXkYGh+QVzVmkehFwwgz0lsSRRLyWJgcHgw4897VJLGoGaGf4zMnIwMHE0CAHZe5gYGICIoYWRgaEASAcH+mSWpCqk5RflJpYoGDMIMDAyMjgoKDBAlDEzIABQBwMLGp8QYGLQy7rAC2Lw2zLw9/Pbvv///z86fkeMSSMdBDCxiWtrM0aWJCblpBYX5gBjLb44tbA0NS8ZncvsHOTqGOKqEOLo5OOqgCapkZeYm6oD5GnmM7KLi4szNtqCjUzKz88uBhNMKNoTwGIJChoJmSkJCpl5JanpqUUKAUGevo5BkQrerpEKjqEh/p5+QE2+rn4hOgklmSU5qQkKJakVJToJiaUlGflFEJ4mKB0w8n9k4P+ILRWEMA10EI+CIQx4GVkYRMVLUotLDI2MDY0hae0bA/83bGnNazStjQIKAQcjszgnuHAE8Xj2RfGx8hmo667hWlK97fwSkNgkBob97MCqGFpTAgDvXrHv",
+ "E": 65055,
+ "type": 90,
+ "QID": 429267557044523008,
+ "ET": 1747811710510,
+ "SNDR": 65055,
+ "GC_S": 2,
+ "S": 4,
+ "QF": true,
+ "V": 0,
+ "ID": "bookcatalog",
+ "CA": "/127.0.0.1:2000"
+}
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT)
+AR0:PISM.handleAccept(myID=65055, sender=65055)
+AR0:PISM.handleAccept(myID=65055, sender=65055) calls incrOutstanding()
+AR0:PM.Outstanding.enqueue(myID=65055) - putIfAbsent(clientAddr=/127.0.0.1:2000), entryReplica=65055, requests=[429267557044523008, 3623356245438476288]
+AR0:PISM.sendMessagingTask(type=ACCEPT_REPLY, recipient=[65055])
+	>> AR0:PM.handlePaxosPacket(msgType=ACCEPT_REPLY)
+AR0:PISM.handlePaxosMessage(myID=65055, type=ACCEPT_REPLY)
+AR2:PISM.handlePaxosMessage(myID=65057, type=NO_TYPE)
+AR1:PISM.handlePaxosMessage(myID=65056, type=NO_TYPE)
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)
+RC0:PISM.handlePaxosMessage(myID=80927, type=NO_TYPE)

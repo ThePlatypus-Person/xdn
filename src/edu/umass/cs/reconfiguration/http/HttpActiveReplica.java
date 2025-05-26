@@ -550,12 +550,15 @@ public class HttpActiveReplica {
                 );
 
                 io.netty.handler.codec.http.HttpRequest reqData = httpRequest.getHttpRequest();
-                String requestInfo = String.format("%s - %s:%s", 
-                    reqData.method().toString(), 
-                    serviceName,
-                    reqData.uri()
+                String requestInfo = String.format("\n%s:HAR:%s - %s:%s", 
+                        this.nodeId,
+                        reqData.method().toString(), 
+                        serviceName,
+                        reqData.uri()
                 );
-                Logger.getGlobal().log(Level.INFO, requestInfo);
+                System.out.println(requestInfo);
+
+                // Logger.getGlobal().log(Level.INFO, requestInfo);
 
                 /*
                 XdnHttpExecutedCallback callback =

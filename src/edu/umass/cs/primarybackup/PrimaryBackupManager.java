@@ -258,12 +258,14 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
     // TODO: handle a batch of request from outstanding queue, instead of handling it one by one.
     private boolean executeRequestCoordinateStateDiff(RequestPacket packet,
                                                       ExecutedCallback callback) {
-        System.out.printf(">> PBManager-%s.executeRequestCoordinateStateDiff()\n",
-               myNodeID);
         // System.out.printf(">> PBManager-%s: handling request on primary %s\n",
         //        myNodeID, packet.toString());
 
         String serviceName = packet.getServiceName();
+        System.out.printf(
+            "%s:PBM.executeRequestCoordinateStateDiff(service=%s)\n",
+            myNodeID, serviceName
+        );
 
         // ensure this method is only invoked by the primary node
         Role currentServiceRole = this.currentRole.get(serviceName);
@@ -312,13 +314,18 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 serviceName, currentEpoch, stateDiff);
         ReplicableClientRequest gpPacket = ReplicableClientRequest.wrap(applyStateDiffPacket);
         gpPacket.setClientAddress(messenger.getListeningSocketAddress());
-        System.out.println("this.paxosManager.propose(...)");
+        System.out.printf(
+            "%s:PBM.paxosManager.propose(statediff, epoch=%s)\n",
+            myNodeID, currentEpoch
+        );
+
         this.paxosManager.propose(
                 serviceName,
                 gpPacket,
                 (stateDiffPacket, handled) -> {
-                    System.out.printf(">>> %s:PBManager epoch=%s is accepted\n",
-                           myNodeID, finalCurrentEpoch);
+                    System.out.printf("%s:PBManager epoch=%s is accepted\n",
+                            myNodeID, finalCurrentEpoch);
+
                     // System.out.printf(">>> %s:PBManager epoch=%s statediff=%s is accepted\n",
                     //        myNodeID, finalCurrentEpoch, finalStateDiff);
                     callback.executed(packet, handled);
