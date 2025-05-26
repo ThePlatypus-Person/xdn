@@ -223,6 +223,12 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return executeStartEpochPacket(startEpochPacket);
         }
 
+        // InitBackupPacket: primary -> replica
+        // only executed by XDNGigapaxosApp
+        if (packet instanceof InitBackupPacket initBackupPacket) {
+            return executeInitBackupPacket(initBackupPacket);
+        }
+
         String exceptionMsg = String.format("unknown primary backup packet '%s'",
                 packet.getClass().getSimpleName());
         throw new RuntimeException(exceptionMsg);
@@ -650,6 +656,12 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 "myEpoch=%s primaryEpoch=%s", currentEpoch, newPrimaryEpoch));
     }
 
+    // executeInitBackupPacket is being called by execute() in the PaxosMiddlewareApp
+    private boolean executeInitBackupPacket(InitBackupPacket packet) {
+        String serviceName = packet.getServiceName();
+        return this.replicableApp.restore(serviceName, "nondeter:start:");
+    }
+
     // executeGetCheckpoint is being called by checkpoint() in the PaxosMiddlewareApp
     private String executeGetCheckpoint(String groupName) {
         return this.replicableApp.checkpoint(groupName);
@@ -683,11 +695,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                                                String initialState,
                                                Set<NodeIDType> nodes,
                                                String placementMetadata) {
-        System.out.printf(">> %s PrimaryBackupManager - createPrimaryBackupInstance | " +
-                        "groupName: %s, placementEpoch: %d, initialState: %s, nodes: %s\n",
-                myNodeID, groupName, placementEpoch, initialState, nodes.toString()
+        System.out.printf("%s:PBM.createPrimaryBackupInstance(service=%s, epoch=%d, nodes=%s, initState=%s)",
+                myNodeID, groupName, placementEpoch, nodes.toString(), initialState
         );
 
+        initialState = String.format("nondeter:create:%s", initialState);
 
         // this.paxosMiddlewareApp = XdnGigapaxosApp
         boolean created = this.paxosManager.createPaxosInstanceForcibly(
@@ -720,7 +732,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return true;
         }
 
-        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, initialState);
+        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes);
         if (!isInitializationSuccess) {
             System.out.printf("Failed to initialize replica group for %s\n", groupName);
             return false;
@@ -788,7 +800,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         return true;
     }
 
-    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes, String initialState) {
+    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes) {
         this.currentRole.put(groupName, Role.BACKUP);
         NodeIDType paxosCoordinatorID = this.paxosManager.getPaxosCoordinator(groupName);
         if (paxosCoordinatorID == null) {
@@ -840,52 +852,24 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     System.out.println(">> Handling non-deterministic service initialization");
                     xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
-                    // Parse and validate the service's properties
-                    String encodedProperties = null;
-                    if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX)) {
-                        encodedProperties = initialState.substring(ServiceProperty.XDN_INITIAL_STATE_PREFIX.length());
-                    }
-                    assert encodedProperties != null;
-                    ServiceProperty serviceProperty = null;
+                    xdnApp.restore(groupName, "nondeter:start:");
+                    xdnApp.multiFileInit(groupName, ipAddresses);
+
+                    Set<NodeIDType> backupNodes = nodes.stream()
+                        .filter(node -> !node.equals(myNodeID))
+                        .collect(Collectors.toSet());
+
+                    InitBackupPacket initPacket = new InitBackupPacket(groupName);
+                    GenericMessagingTask<NodeIDType, InitBackupPacket> m = new GenericMessagingTask<>(backupNodes.toArray(), initPacket);
+
+                    // send packet to all backup replicas
                     try {
-                        serviceProperty = ServiceProperty.createFromJsonString(encodedProperties);
-                    } catch (JSONException e) {
+                        this.messenger.send(m);
+                    } catch (IOException | JSONException e) {
                         throw new RuntimeException(e);
                     }
 
-                    String databaseImage = serviceProperty.getStatefulComponent().getImageName().split(":")[0];
-                    //String pattern = "xdn:init:\\{\"components\":\\[.*\\{\"(.+)\":\\{.*\"image\":\"(.+):(:?.+)\",.*\"stateful\":true.*}}].+}";
-                    /*
-                    Pattern p = Pattern.compile(pattern, Pattern.MULTILINE);
-                    Matcher matcher = p.matcher(initialState);
-                    System.out.println("initialState: " + initialState);
-                    // System.out.println("groupCount: " + matcher.groupCount());
-
-                    if (!matcher.find()) {
-                        System.out.println("No match found. Invalid initialState or regex error");
-                        return;
-                    }
-
-                    // String containerName = matcher.group(1);
-                    // System.out.println("containerName: " + containerName);
-                    String databaseImage = matcher.group(2);
-                    System.out.println("databaseImage: " + databaseImage);
-                    */
-
-                    /*
-                    Set<String> backupNodes = nodes.stream()
-                        .map(String::valueOf)
-                        .filter(node -> !node.equals(this.myNodeID.toString()))
-                        .map(String::toLowerCase)
-                        .collect(Collectors.toSet());
-                    */
-
-                    // Must configure SSH so rsync works when sending data to backup replicas
-                    xdnApp.multiFileInit(groupName, databaseImage, ipAddresses);
-
                     System.out.println("\n>>> Multi-file Initialization finished\n");
-                    // System.out.println(backupNodes);
-                    // System.out.println(xdnApp.getRecorderType());
                 }
             );
         }

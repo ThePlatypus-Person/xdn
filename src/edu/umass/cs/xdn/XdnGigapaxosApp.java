@@ -316,7 +316,12 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // with state == initialState. In XDN, the initialState is always started with "xdn:init:".
         // Example of the initState is "xdn:init:bookcatalog:8000:linearizable:true:/app/data",
         if (state != null && state.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX)) {
-            boolean isServiceInitialized = initContainerizedService2(name, state);
+            boolean isServiceCreated = createServiceInstance(name, state);
+            if (!isServiceCreated) {
+                throw new RuntimeException(String.format("%s: Failed to create service %s", this.myNodeId, name));
+            }
+
+            boolean isServiceInitialized = initContainerizedService2(name);
             if (isServiceInitialized) isServiceActive.put(name, true);
             return isServiceInitialized;
         }
@@ -352,6 +357,24 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                     encodedServiceProperty,
                     encodedFinalState,
                     newPlacementEpoch);
+        }
+
+        // Case-6: handle create service for non-deterministic initialization
+        if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX)) {
+            state = state.substring(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX.length());
+            boolean isServiceCreated = createServiceInstance(name, state);
+            if (!isServiceCreated) {
+                throw new RuntimeException(String.format("%s: Failed to create service %s", this.myNodeId, name));
+            }
+
+            return isServiceCreated;
+        }
+
+        // Case-7: handle start a created service (non-deterministic init)
+        if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_START_PREFIX)) {
+            boolean isServiceInitialized = initContainerizedService2(name);
+            if (isServiceInitialized) isServiceActive.put(name, true);
+            return isServiceInitialized;
         }
 
         // Unknown cases, should not be triggered
@@ -494,27 +517,23 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     /**
-     * initContainerizedService2 initializes a containerized service, in idempotent manner.
-     * This is a new implementation of initContainerizedService, but with support on service with
-     * multiple container components.
+     * Create service instance from initial state. 
+     * The service is not started and is assigned an empty port number.
      *
      * @param serviceName  name of the to-be-initialized service.
      * @param initialState the initial state with "xdn:init:" prefix.
-     * @return false if failed to initialize the service.
      */
-    private boolean initContainerizedService2(String serviceName, String initialState) {
+    private boolean createServiceInstance(String serviceName, String initialState) {
+        System.out.printf("%s:XGA.createServiceInstance(service=%s)\n", this.myNodeId, serviceName);
         String validInitialStatePrefix = ServiceProperty.XDN_INITIAL_STATE_PREFIX;
-        int initialPlacementEpoch = 0;
 
         // validate the initial state
         if (!initialState.startsWith(validInitialStatePrefix)) {
             throw new RuntimeException("Invalid initial state");
         }
 
-        // decode the initial state, containing the service property
         ServiceProperty property = null;
         String networkName = String.format("net::%s:%s", myNodeId, serviceName);
-        int allocatedPort = getRandomPort();
         try {
             initialState = initialState.substring(validInitialStatePrefix.length());
             property = ServiceProperty.createFromJsonString(initialState);
@@ -540,12 +559,39 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                 property,
                 serviceName,
                 networkName,
-                allocatedPort,
                 containerNames
         );
 
+        // store service
+        this.services.put(serviceName, service);
+        return true;
+    }
+
+    /**
+     * initContainerizedService2 initializes a containerized service, in idempotent manner.
+     * This is a new implementation of initContainerizedService, but with support on service with
+     * multiple container components.
+     *
+     * @param serviceName  name of the to-be-initialized service.
+     * @param initialState the initial state with "xdn:init:" prefix.
+     * @return false if failed to initialize the service.
+     */
+    private boolean initContainerizedService2(String serviceName) {
+        System.out.printf("%s:XGA.initContainerizedService2(service=%s)\n", this.myNodeId, serviceName);
+        int initialPlacementEpoch = 0;
+
+        // decode the initial state, containing the service property
+        //String networkName = String.format("net::%s:%s", myNodeId, serviceName);
+        ServiceInstance service = this.services.get(serviceName);
+        if (service == null) {
+            throw new RuntimeException("Service instance not found");
+        }
+
+        int allocatedPort = getRandomPort();
+        service.allocatedHttpPort = allocatedPort;
+
         // TODO: remove already running containers, if any
-        for (String name: containerNames) {
+        for (String name: service.containerNames) {
             String command = String.format("docker rm -f %s", name);
             int code = Shell.runCommand(command, true);
             if (code == 0) {
@@ -556,7 +602,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         }
 
         // create docker network, via command line
-        int exitCode = createDockerNetwork(networkName);
+        int exitCode = createDockerNetwork(service.networkName);
         if (exitCode != 0) {
             return false;
         }
@@ -564,7 +610,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // TODO: prepare statediff directory, if required
         String stateDirMountSource = stateDiffRecorder.getTargetDirectory(
                 serviceName, initialPlacementEpoch);
-        String stateDirMountTarget = property.getStatefulComponentDirectory();
+        String stateDirMountTarget = service.property.getStatefulComponentDirectory();
 
         System.out.println(String.format(
             ">>> serviceName: %s\n>>> stateDirMountSource: %s\n>>> stateDirMountTarget: %s",
@@ -575,12 +621,12 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // actually start the service, run each component as container, in the same order as they
         // are specified in the declared service property.
-        idx = 0;
-        for (ServiceComponent c : property.getComponents()) {
+        int idx = 0;
+        for (ServiceComponent c : service.property.getComponents()) {
             boolean isSuccess = startContainer(
                     c.getImageName(),
-                    containerNames.get(idx),
-                    networkName,
+                    service.containerNames.get(idx),
+                    service.networkName,
                     c.getComponentName(),
                     c.getExposedPort(),
                     c.getEntryPort(),
@@ -598,14 +644,13 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // TODO: need to handle non-deterministic initialization,
         //  e.g., a node that initialize a filename with current time or random number.
-        if (!property.isDeterministic()) {
+        if (!service.property.isDeterministic()) {
             System.err.println("WARNING: non-deterministic service can generate different " +
                     "initial state");
         }
         stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
 
         // store all the current service metadata
-        this.services.put(serviceName, service);
         this.activeServicePorts.put(serviceName, allocatedPort);
 
         // store the service placement epoch metadata
@@ -1697,7 +1742,13 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *                                  Backup Test methods                                     *
      *********************************************************************************************/
     // This function is only called by the primary replica
-    public void multiFileInit(String serviceName, String databaseImage, Map<String, InetAddress> ipAddresses) {
+    public void multiFileInit(String serviceName, Map<String, InetAddress> ipAddresses) {
+        ServiceInstance service = this.services.get(serviceName);
+        if (service == null) 
+            throw new RuntimeException(String.format("%s: service %s not found.", myNodeId, serviceName));
+
+        String databaseImage = service.property.getStatefulComponent().getImageName().split(":")[0];
+
         // There's no way to detect if SQLite is used
         String dbReadyMsg = null;
         int migrateWaitTime = 5;
