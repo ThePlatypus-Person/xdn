@@ -205,10 +205,21 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
             throw new RuntimeException(e);
         }
 
+        int count = 0;
         // apply the stateDiff inside the .diff file using rsync
-        String command = String.format("%s -ar --read-batch=%s %s",
-                RSYNC_BIN_PATH, targetDiffFile, targetDir);
-        retCode = Shell.runCommand(command, false);
+        while (true) {
+            if (++count >= 10) {
+                System.out.printf("RsyncRecorder.applyStateDiff() failed after %d iterations\n", count);
+                break;
+            }
+
+            System.out.printf("RsyncRecorder.applyStateDiff(iter=%d)\n", count);
+            String command = String.format("%s -ar --read-batch=%s %s",
+                    RSYNC_BIN_PATH, targetDiffFile, targetDir);
+            retCode = Shell.runCommand(command, true);
+
+            if (retCode == 0) break;
+        }
         assert retCode == 0;
 
         return true;
@@ -258,7 +269,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
             int exitCode = Shell.runCommand(String.format(
                 "rsync -avz --delete --human-readable %s/%s %s/%s",
                 currentReplica, mntDir, currentReplica, snpDir
-            ), false);
+            ), true);
 
             if (exitCode != 0) {
                 System.out.println(String.format("Failed to sync /mnt/ to /snp/ in %s", currentReplica));
@@ -295,7 +306,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                     currentReplica, 
                     username, ipAddresses.get(key).getHostAddress(),
                     backupReplicas.get(key)
-                    ), false);
+                    ), true);
 
                 if (exitCode != 0) {
                     System.out.println(String.format(
