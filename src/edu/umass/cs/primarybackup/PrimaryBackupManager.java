@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.Scanner;
 
 public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
@@ -329,7 +330,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 serviceName,
                 gpPacket,
                 (stateDiffPacket, handled) -> {
-                    System.out.printf("%s:PBManager epoch=%s is accepted\n",
+                    System.out.printf("%s:PBM.paxosManager.propose(epoch=%s) stateDiffPacket accepted\n",
                             myNodeID, finalCurrentEpoch);
 
                     // System.out.printf(">>> %s:PBManager epoch=%s statediff=%s is accepted\n",
@@ -533,6 +534,10 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         PrimaryEpoch<NodeIDType> primaryEpoch = new PrimaryEpoch<>(primaryEpochStr);
         PrimaryEpoch<NodeIDType> currentEpoch = this.currentPrimaryEpoch.get(groupName);
         Role myCurrentRole = this.currentRole.get(groupName);
+
+        System.out.printf("%s:PBM.executeApplyStateDiffPacket(service=%s, primaryEpoch=%d, currentEpoch=%d, role=%s)\n",
+            myNodeID, groupName, primaryEpoch.counter, currentEpoch.counter, myCurrentRole
+        );
 
         // System.out.printf(">>> %s:PaxosMiddlewareApp:executeStateDiff role=%s myEpoch=%s epoch=%s stateDiff=%s\n",
         //        myNodeID, myCurrentRole, currentEpoch, packet.getPrimaryEpoch(), packet.getStateDiff());
@@ -863,11 +868,13 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     GenericMessagingTask<NodeIDType, InitBackupPacket> m = new GenericMessagingTask<>(backupNodes.toArray(), initPacket);
 
                     // send packet to all backup replicas
+                    /*
                     try {
                         this.messenger.send(m);
                     } catch (IOException | JSONException e) {
                         throw new RuntimeException(e);
                     }
+                    */
 
                     System.out.println("\n>>> Multi-file Initialization finished\n");
                 }

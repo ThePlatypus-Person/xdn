@@ -25,6 +25,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -184,9 +186,12 @@ public class JSONMessenger<NodeIDType> implements
 					continue; // remaining sends might succeed
 				}
 
+
+                String status = "FAIL";
 				Level level;
 				// check success or failure and react accordingly
 				if (sent > 0) {
+                    status = "SUCCESS";
 					log.log(level = Level.FINEST,
 							"{0}->{1}:[{2}] ",
 							new Object[] {
@@ -200,6 +205,7 @@ public class JSONMessenger<NodeIDType> implements
 															msgBytes), 32, 32))
 											: msgBytes });
 				} else if (sent == 0) {
+                    status = "CONGESTIION";
 					log.log(Level.INFO,
 							"{0} experiencing congestion; this is not disastrous (yet)", new Object[]{this});
 					Retransmitter rtxTask = new Retransmitter(
@@ -221,6 +227,28 @@ public class JSONMessenger<NodeIDType> implements
 									msg,
 									isPresent });
 				}
+
+                String regex1 = "\"SNDR\":([0123456789]+),.*\\}";
+                Pattern pattern1 = Pattern.compile(regex1);
+                Matcher matcher1 = pattern1.matcher(message);
+
+                String regex2 = "\"ID\":\"(.+)\",.*\\}";
+                Pattern pattern2 = Pattern.compile(regex2);
+                Matcher matcher2 = pattern2.matcher(message);
+
+                String sender = "NULL";
+                String id = "NULL";
+
+                if (matcher1.find())
+                    sender = matcher1.group(1);
+
+                if (matcher2.find())
+                    id = matcher2.group(1);
+
+                System.out.printf(
+                    "%s::JSONM.send(msgID=%s, msgSender=%s, recipient=[%s])\n", 
+                    status, id, sender, mtask.recipients[r]
+                );
 			}
 		}
 		if (thrown != null)

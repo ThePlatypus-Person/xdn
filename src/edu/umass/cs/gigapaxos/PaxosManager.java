@@ -45,6 +45,7 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 /**
  * @param <NodeIDType> <p>
@@ -1015,6 +1016,15 @@ public class PaxosManager<NodeIDType> {
                         if (pp.getType() == PaxosPacketType.REQUEST)
                             DelayProfiler.updateDelayNano(
                                     "requestPacketization", t);
+
+
+                    PaxosPacketType paxosPacketType = pp.getType();
+                    if (paxosPacketType != PaxosPacketType.FAILURE_DETECT) {
+                        System.out.printf(
+                            "\t>> %s:PM.fastDemux.handleMessage(msgType=%s) - calls this.handleIncomingPacket\n",
+                            PaxosManager.this.getNodeID(), paxosPacketType
+                        );
+                    }
 
                     PaxosManager.this.handleIncomingPacket(pp);
                     return true;

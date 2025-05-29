@@ -288,7 +288,7 @@ public class MessageExtractor implements InterfaceMessageExtractor {
 							this,
 							pd,
 							header,
-							log.isLoggable(level) ? Util.truncate(new Stringer(message), 32, 32)
+							log.isLoggable(level) ? Util.truncate(new Stringer(message), 42, 42)
 									: message });
 			// the handler turns true if it handled the message
 			if (pd.handleMessageSuper(message, header))

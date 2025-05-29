@@ -124,6 +124,11 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         int removeDiffDirRetCode = Shell.runCommand("rm -rf " + targetDiffFile);
         int copySnapshotRetCode = Shell.runCommand(
                 String.format("cp -a %s %s", targetSourceDir, targetDestDir));
+
+        System.out.printf("Rsync removeTargetDirRetCode=%d, removeDiffDirRetCode=%d, copySnapshotRetCode=%d\n",
+            removeTargetDirRetCode, removeDiffDirRetCode, copySnapshotRetCode
+        );
+
         assert removeTargetDirRetCode == 0 &&
                 removeDiffDirRetCode == 0 &&
                 copySnapshotRetCode == 0;
@@ -144,11 +149,19 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         String targetDiffFile = String.format("%s%s/e%d.diff",
                 this.baseDiffDirPath, serviceName, placementEpoch);
 
-        String command = String.format("%s -ar --write-batch=%s %s %s",
-                RSYNC_BIN_PATH, targetDiffFile, targetSourceDir, targetDestDir);
-        int exitCode = Shell.runCommand(command, true);
-        if (exitCode != 0) {
-            throw new RuntimeException("failed to capture stateDiff");
+        int count = 0;
+        while (true) {
+            if (++count >= 10) {
+                System.out.printf("RsyncRecorder.captureStateDiff() failed after %d iterations\n", count);
+                break;
+            }
+
+            System.out.printf("RsyncRecorder.captureStateDiff(iter=%d)\n", count);
+
+            String command = String.format("%s -ar --write-batch=%s %s %s",
+                    RSYNC_BIN_PATH, targetDiffFile, targetSourceDir, targetDestDir);
+            int exitCode = Shell.runCommand(command, true);
+            if (exitCode == 0) break;
         }
 
         // read diff into byte[]
@@ -220,6 +233,13 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
             if (retCode == 0) break;
         }
+        /*
+        System.out.printf("RsyncRecorder.applyStateDiff(iter=%d)\n", count);
+        String command = String.format("%s -ar --read-batch=%s %s",
+                RSYNC_BIN_PATH, targetDiffFile, targetDir);
+        retCode = Shell.runCommand(command, false);
+        */
+
         assert retCode == 0;
 
         return true;

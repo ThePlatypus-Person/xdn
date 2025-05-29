@@ -564,6 +564,14 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // store service
         this.services.put(serviceName, service);
+
+        // TEMPORARY
+        // store the service placement epoch metadata
+        int initialPlacementEpoch = 0;
+        this.servicePlacementEpoch.put(serviceName, initialPlacementEpoch);
+        Map<Integer, ServiceInstance> epochToInstanceMap = new ConcurrentHashMap<>();
+        epochToInstanceMap.put(initialPlacementEpoch, service);
+        this.serviceInstances.put(serviceName, epochToInstanceMap);
         return true;
     }
 
@@ -654,10 +662,12 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         this.activeServicePorts.put(serviceName, allocatedPort);
 
         // store the service placement epoch metadata
+        /*
         this.servicePlacementEpoch.put(serviceName, initialPlacementEpoch);
         Map<Integer, ServiceInstance> epochToInstanceMap = new ConcurrentHashMap<>();
         epochToInstanceMap.put(initialPlacementEpoch, service);
         this.serviceInstances.put(serviceName, epochToInstanceMap);
+        */
 
         return true;
     }
