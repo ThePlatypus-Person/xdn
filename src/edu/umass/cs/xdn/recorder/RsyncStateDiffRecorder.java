@@ -263,7 +263,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
         Set<String> backupNodes = ipAddresses.keySet().stream()
             .filter(node -> !node.equals(myNodeId.toString()))
             .map(String::toLowerCase)

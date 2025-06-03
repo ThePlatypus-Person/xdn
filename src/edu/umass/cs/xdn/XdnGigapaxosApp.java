@@ -370,7 +370,13 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             return isServiceCreated;
         }
 
-        // Case-7: handle start a created service (non-deterministic init)
+        // Case-7: handle start Fuselog in backup (non-deterministic init)
+        if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX)) {
+            int placementEpoch = 0;
+            return this.stateDiffRecorder.postInitialization(name, placementEpoch);
+        }
+
+        // Case-8: handle start a created service (non-deterministic init)
         if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_START_PREFIX)) {
             boolean isServiceInitialized = initContainerizedService2(name);
             if (isServiceInitialized) isServiceActive.put(name, true);
@@ -655,8 +661,9 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         if (!service.property.isDeterministic()) {
             System.err.println("WARNING: non-deterministic service can generate different " +
                     "initial state");
+        } else {
+            stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
         }
-        stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
 
         // store all the current service metadata
         this.activeServicePorts.put(serviceName, allocatedPort);
@@ -1752,7 +1759,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *                                  Backup Test methods                                     *
      *********************************************************************************************/
     // This function is only called by the primary replica
-    public void multiFileInit(String serviceName, Map<String, InetAddress> ipAddresses) {
+    public void nonDeterministicInitialization(String serviceName, Map<String, InetAddress> ipAddresses) {
         ServiceInstance service = this.services.get(serviceName);
         if (service == null) 
             throw new RuntimeException(String.format("%s: service %s not found.", myNodeId, serviceName));
@@ -1838,9 +1845,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             e.printStackTrace();
         }
 
-        // Currently, only RsyncStateRecorder supports multi-file initialization
-        // FUSELOG and ZIP will return immediately.
-        this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses);
+        int placementEpoch = 0;
+        this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses, placementEpoch);
     }
 
     /**********************************************************************************************

@@ -225,7 +225,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         }
 
         // InitBackupPacket: primary -> replica
-        // only executed by XDNGigapaxosApp
+        // only executed by XDNGigapaxosApp (backup)
         if (packet instanceof InitBackupPacket initBackupPacket) {
             return executeInitBackupPacket(initBackupPacket);
         }
@@ -664,7 +664,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
     // executeInitBackupPacket is being called by execute() in the PaxosMiddlewareApp
     private boolean executeInitBackupPacket(InitBackupPacket packet) {
         String serviceName = packet.getServiceName();
-        return this.replicableApp.restore(serviceName, "nondeter:start:");
+        return this.replicableApp.restore(serviceName, "nondeter:start:backup");
     }
 
     // executeGetCheckpoint is being called by checkpoint() in the PaxosMiddlewareApp
@@ -858,7 +858,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
                     xdnApp.restore(groupName, "nondeter:start:");
-                    xdnApp.multiFileInit(groupName, ipAddresses);
+                    xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
 
                     Set<NodeIDType> backupNodes = nodes.stream()
                         .filter(node -> !node.equals(myNodeID))
@@ -868,15 +868,13 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     GenericMessagingTask<NodeIDType, InitBackupPacket> m = new GenericMessagingTask<>(backupNodes.toArray(), initPacket);
 
                     // send packet to all backup replicas
-                    /*
                     try {
                         this.messenger.send(m);
                     } catch (IOException | JSONException e) {
                         throw new RuntimeException(e);
                     }
-                    */
 
-                    System.out.println("\n>>> Multi-file Initialization finished\n");
+                    System.out.println("\n>>> non-deterministic service initialization complete\n");
                 }
             );
         }

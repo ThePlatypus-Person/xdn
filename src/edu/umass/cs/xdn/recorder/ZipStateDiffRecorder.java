@@ -225,7 +225,7 @@ public class ZipStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
         System.out.println("Multi-file initialization is not supported on Zip.");
         return;
     }
