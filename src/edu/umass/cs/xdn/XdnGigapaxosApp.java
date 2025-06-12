@@ -530,7 +530,18 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      * @param initialState the initial state with "xdn:init:" prefix.
      */
     private boolean createServiceInstance(String serviceName, String initialState) {
-        System.out.printf("%s:XGA.createServiceInstance(service=%s)\n", this.myNodeId, serviceName);
+        System.out.printf("%s:XGA.createServiceInstance(service=%s, state=%s)\n", this.myNodeId, serviceName, initialState);
+
+        if (initialState.startsWith(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX)) {
+            initialState = initialState.substring(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX.length());
+            initialState += ServiceProperty.XDN_INITIAL_STATE_PREFIX;
+        }
+
+        if (initialState.startsWith(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX)) {
+            initialState = initialState.substring(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX.length());
+            initialState += ServiceProperty.XDN_INITIAL_STATE_PREFIX;
+        }
+
         String validInitialStatePrefix = ServiceProperty.XDN_INITIAL_STATE_PREFIX;
 
         // validate the initial state

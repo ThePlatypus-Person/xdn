@@ -281,7 +281,6 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
         String mntDir = String.format("mnt/%s/", serviceName);
         String snpDir = String.format("snp/%s/", serviceName);
-        String diffDir = String.format("diff/%s/", serviceName);
 
         String username = Shell.runCommandWithOutput("whoami").stdout.trim();
 
@@ -318,12 +317,9 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                 int exitCode = Shell.runCommand(String.format("""
                     rsync -avz --delete --human-readable \
                     --include='mnt/' --include='%s' --include='%s***' \
-                    --include='snp/' --include='%s' --include='%s***' \
-                    --include='diff/' --include='%s' --include='%s***' \
                     --exclude='*' \
                     %s %s@%s:%s""", 
-                    mntDir, mntDir, snpDir, snpDir, diffDir, diffDir,
-                    currentReplica, 
+                    mntDir, mntDir, currentReplica, 
                     username, ipAddresses.get(key).getHostAddress(),
                     backupReplicas.get(key)
                     ), true);

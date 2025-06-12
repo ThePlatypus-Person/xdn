@@ -253,6 +253,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
     @Override
     public boolean applyStateDiff(String serviceName, int placementEpoch, String encodedState) {
+        System.out.printf("FUSE.applyStateDiff(serviceName=%s, encodedState=%s)\n", serviceName, encodedState);
         // TODO: directly apply stateDiff from the obtained byte[], not via
         //  the fuselog-apply program, which we currently use.
 
@@ -273,7 +274,11 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         }
 
         // preparing the shell command to apply stateDiff
+        /*
         String cmd = String.format("%s %s --silent --statediff=%s",
+                FUSELOG_APPLY_BIN_PATH, targetDir, diffFile);
+        */
+        String cmd = String.format("%s %s --statediff=%s",
                 FUSELOG_APPLY_BIN_PATH, targetDir, diffFile);
         int exitCode = Shell.runCommand(cmd, true);
         assert exitCode == 0 : "failed to apply stateDiff with exit code " + exitCode;
@@ -314,8 +319,6 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         backupNodes.forEach(node -> backupReplicas.put(node, String.format("%s%s/", this.defaultWorkingBasePath, node)));
 
         String mntDir = String.format("mnt/%s/", serviceName);
-        String diffDir = String.format("diff/%s/", serviceName);
-
         String username = Shell.runCommandWithOutput("whoami").stdout.trim();
 
         // Copy data to other replicas
@@ -332,14 +335,12 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
                 int exitCode = Shell.runCommand(String.format("""
                     rsync -avz --delete --human-readable \
                     --include='mnt/' --include='%s' --include='%s***' \
-                    --include='diff/' --include='%s' --include='%s***' \
                     --exclude='*' \
                     %s %s@%s:%s""", 
-                    mntDir, mntDir, diffDir, diffDir,
-                    currentReplica, 
+                    mntDir, mntDir, currentReplica, 
                     username, ipAddresses.get(key).getHostAddress(),
                     backupReplicas.get(key)
-                    ), true);
+                ), true);
 
                 if (exitCode != 0) {
                     System.out.println(String.format(
