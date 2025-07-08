@@ -3,6 +3,7 @@ package edu.umass.cs.xdn;
 import edu.umass.cs.gigapaxos.PaxosConfig;
 import edu.umass.cs.gigapaxos.interfaces.Replicable;
 import edu.umass.cs.gigapaxos.interfaces.Request;
+import edu.umass.cs.gigapaxos.paxosutil.LargeCheckpointer;
 import edu.umass.cs.nio.interfaces.IntegerPacketType;
 import edu.umass.cs.primarybackup.interfaces.BackupableApplication;
 import edu.umass.cs.primarybackup.packets.*;
@@ -25,6 +26,10 @@ import edu.umass.cs.xdn.utils.Utils;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;
 import org.json.JSONException;
+
+import com.fasterxml.jackson.databind.node.ContainerNode;
+
+import static org.junit.Assert.assertNotNull;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -50,6 +55,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableApplication,
         InitialStateValidator {
@@ -89,6 +95,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     private AbstractStateDiffRecorder stateDiffRecorder;
 
     private final Logger logger = Logger.getLogger(XdnGigapaxosApp.class.getName());
+    private final LargeCheckpointer largeCheckpointer;
 
     public XdnGigapaxosApp(String[] args) {
         System.out.println(">> XDNGigapaxosApp initialization ...");
@@ -101,6 +108,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         this.services = new ConcurrentHashMap<>();
         this.fsSocketConnection = new HashMap<>();
         this.isServiceActive = new HashMap<>();
+	this.largeCheckpointer = new LargeCheckpointer(
+	    String.format("/tmp/xdn/final/%s/", this.myNodeId), this.myNodeId);
 
         // Validate and initialize the stateDiff recorder for Primary Backup.
         // We need to check the Operating System as currently FUSE (i.e., Fuselog)
@@ -173,6 +182,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
     @Override
     public boolean execute(Request request) {
+	System.out.printf("%s:XGA.execute()\n", this.myNodeId);
         String serviceName = request.getServiceName();
 
         if (request instanceof HttpActiveReplicaRequest) {
@@ -287,16 +297,29 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
     @Override
     public String checkpoint(String name) {
+	System.out.printf("%s:XGA.checkpoint()\n", this.myNodeId);
         // TODO: implement me
-        //
-        System.out.println(">> XDNGigapaxosApp:" + this.myNodeId + " - checkpoint ... name=" + name);
         return "dummyXDNServiceCheckpoint";
     }
 
     @Override
     public boolean restore(String name, String state) {
+	System.out.printf("%s:XGA.restore() - name=%s, state=%s\n", this.myNodeId, name, state);
+
+	/*
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] restore START []==========[]\n"
+	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
+	    + "[]==========[] restore END []==========[]"
+	);
+
         System.out.println(">> XdnGigapaxosApp:" + this.myNodeId +
                 " - restore name=" + name + " state=" + state);
+	*/
 
         // A corner case when name is empty, which fundamentally must not happen.
         if (name == null || name.isEmpty()) {
@@ -316,6 +339,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // with state == initialState. In XDN, the initialState is always started with "xdn:init:".
         // Example of the initState is "xdn:init:bookcatalog:8000:linearizable:true:/app/data",
         if (state != null && state.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX)) {
+	    //System.out.printf("\t\t[%s][%s] CASE-2 DEBUG - serviceInstances: %s\n", this.myNodeId, name, this.serviceInstances.toString());
             boolean isServiceCreated = createServiceInstance(name, state);
             if (!isServiceCreated) {
                 throw new RuntimeException(String.format("%s: Failed to create service %s", this.myNodeId, name));
@@ -362,6 +386,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // Case-6: handle create service for non-deterministic initialization
         if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX)) {
             state = state.substring(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX.length());
+	    //System.out.printf("\t\t[%s][%s] CASE-6 DEBUG - serviceInstances: %s\n", this.myNodeId, name, this.serviceInstances.toString());
             boolean isServiceCreated = createServiceInstance(name, state);
             if (!isServiceCreated) {
                 throw new RuntimeException(String.format("%s: Failed to create service %s", this.myNodeId, name));
@@ -372,12 +397,16 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // Case-7: handle start Fuselog in backup (non-deterministic init)
         if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX)) {
+            System.out.println("Running preInitialization() in backup");
             int placementEpoch = 0;
+
+            //return this.stateDiffRecorder.preInitialization(name, placementEpoch);
             return this.stateDiffRecorder.postInitialization(name, placementEpoch);
         }
 
         // Case-8: handle start a created service (non-deterministic init)
         if (state.startsWith(ServiceProperty.NON_DETERMINISTIC_START_PREFIX)) {
+	    //System.out.printf("\t\t[%s][%s] CASE-8 DEBUG - serviceInstances: %s\n", this.myNodeId, name, this.serviceInstances.toString());
             boolean isServiceInitialized = initContainerizedService2(name);
             if (isServiceInitialized) isServiceActive.put(name, true);
             return isServiceInitialized;
@@ -505,6 +534,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         // create docker network, via command line
         String networkName = String.format("net::%s:%s", myNodeId, prop.serviceName);
         int exitCode = createDockerNetwork(networkName);
+
         if (exitCode != 0) {
             return false;
         }
@@ -534,62 +564,156 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         if (initialState.startsWith(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX)) {
             initialState = initialState.substring(ServiceProperty.NON_DETERMINISTIC_CREATE_PREFIX.length());
-            initialState += ServiceProperty.XDN_INITIAL_STATE_PREFIX;
         }
 
         if (initialState.startsWith(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX)) {
             initialState = initialState.substring(ServiceProperty.NON_DETERMINISTIC_START_BACKUP_PREFIX.length());
-            initialState += ServiceProperty.XDN_INITIAL_STATE_PREFIX;
         }
 
-        String validInitialStatePrefix = ServiceProperty.XDN_INITIAL_STATE_PREFIX;
-
         // validate the initial state
-        if (!initialState.startsWith(validInitialStatePrefix)) {
+	boolean isReconfiguration = false;
+        if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX)) {
+            initialState = initialState.substring(ServiceProperty.XDN_INITIAL_STATE_PREFIX.length());
+	} else if (initialState.startsWith(ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX)) {
+	    isReconfiguration = true;
+	} else {
             throw new RuntimeException("Invalid initial state");
         }
 
         ServiceProperty property = null;
         String networkName = String.format("net::%s:%s", myNodeId, serviceName);
-        try {
-            initialState = initialState.substring(validInitialStatePrefix.length());
-            property = ServiceProperty.createFromJsonString(initialState);
-        } catch (JSONException e) {
-            throw new RuntimeException("Invalid initial state as JSON: " + e);
-        }
+	ServiceInstance service;
+	int initialPlacementEpoch = 0;
 
-        // Prepares container names for each service component.
-        // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
-        // Example : c0.e2.bookcatalog.ar2.xdn.io
-        List<String> containerNames = new ArrayList<>();
-        int idx = 0;
-        int epoch = 0;
-        for (ServiceComponent c : property.getComponents()) {
-            String containerName = String.format("c%d.e%d.%s.%s.xdn.io",
-                    idx, epoch, serviceName, myNodeId);
-            containerNames.add(containerName);
-            idx++;
-        }
+	if (isReconfiguration) {
+            // format: xdn:final:<epoch>::<serviceProperty>::<finalState>
+            String[] raw = initialState.split("::");
+            assert raw.length == 3;
+            String encodedServiceProperty = raw[1];
+            String encodedFinalState = raw[2];  // FIXME: handle if finalState has :: in it.
+            String[] prefixRaw = raw[0].split(":");
+            assert prefixRaw.length == 3;
+            int prevPlacementEpoch = Integer.parseInt(prefixRaw[2]);
+            int newPlacementEpoch = prevPlacementEpoch + 1;  // FIXME: this is prone to error!
+	    initialPlacementEpoch = newPlacementEpoch;
 
-        // prepare the initialized service
-        ServiceInstance service = new ServiceInstance(
-                property,
-                serviceName,
-                networkName,
-                containerNames
-        );
 
-        // store service
-        this.services.put(serviceName, service);
+	    try {
+		property = ServiceProperty.createFromJsonString(encodedServiceProperty);
+	    } catch (JSONException e) {
+		throw new RuntimeException(e);
+	    }
 
-        // TEMPORARY
-        // store the service placement epoch metadata
-        int initialPlacementEpoch = 0;
-        this.servicePlacementEpoch.put(serviceName, initialPlacementEpoch);
-        Map<Integer, ServiceInstance> epochToInstanceMap = new ConcurrentHashMap<>();
-        epochToInstanceMap.put(initialPlacementEpoch, service);
-        this.serviceInstances.put(serviceName, epochToInstanceMap);
-        return true;
+	    // prepare statediff directory, if required
+	    String stateDirMountSource = stateDiffRecorder.getTargetDirectory(
+		serviceName, newPlacementEpoch);
+	    String stateDirMountTarget = property.getStatefulComponentDirectory();
+	    stateDiffRecorder.preInitialization(serviceName, newPlacementEpoch);
+
+	    // Validates the previous epoch final state, then put it into the to-be-mounted dir.
+	    // First, prepare the mounted dir.
+	    // TODO: test with fuse
+	    stateDiffRecorder.removeServiceRecorder(serviceName, newPlacementEpoch);
+	    String mountDir = stateDiffRecorder.getTargetDirectory(serviceName, newPlacementEpoch);
+	    String removeDirCommand = String.format("rm -rf %s", mountDir);
+	    int rmDirRetCode = Shell.runCommand(removeDirCommand);
+	    assert rmDirRetCode == 0;
+	    String createDirCommand = String.format("mkdir -p %s", mountDir);
+	    int mkDirRetCode = Shell.runCommand(createDirCommand);
+	    assert mkDirRetCode == 0;
+
+	    // write the previous epoch final state into .tar file
+	    String destinationDirPath = String.format("/tmp/xdn/final/%s/%s/",
+		this.myNodeId, serviceName);
+	    int code = Shell.runCommand(String.format("mkdir -p %s ", destinationDirPath));
+	    assert code == 0;
+	    String destinationTarFilePath =
+	    String.format("/tmp/xdn/final/%s/%s/rcv_final_state::%d.tar",
+		this.myNodeId, serviceName, newPlacementEpoch);
+
+	    // if < 500 Kb
+	    if (encodedFinalState.startsWith("url:")) {
+		String finalStateUrl = encodedFinalState.substring("url:".length());
+		// TODO: Check destinationTarFilePath
+		this.largeCheckpointer.restoreCheckpointHandle(finalStateUrl, destinationTarFilePath);
+		System.out.printf("XGA.createServiceInstance() - src=%s, dest=%s\n", finalStateUrl, destinationTarFilePath);
+	    } else {
+		byte[] prevEpochFinalStateBytes = Base64.getDecoder().decode(encodedFinalState);
+		try {
+		    Files.write(Paths.get(destinationTarFilePath),
+			prevEpochFinalStateBytes,
+			StandardOpenOption.CREATE,
+			StandardOpenOption.DSYNC);
+		} catch (IOException e) {
+		    throw new RuntimeException(e);
+		}
+	    }
+
+	    // un-archive the .tar file into the target mount dir
+	    ZipFiles.unzip(destinationTarFilePath, mountDir);
+
+	    List<String> containerNames = new ArrayList<>();
+	    int idx = 0;
+	    for (ServiceComponent c : property.getComponents()) {
+		String containerName = String.format("c%d.e%d.%s.%s.xdn.io",
+		    idx, newPlacementEpoch, serviceName, myNodeId);
+		containerNames.add(containerName);
+		idx++;
+	    }
+
+	    int allocatedPort = getRandomPort();
+	    service = new ServiceInstance(
+		property,
+		serviceName,
+		networkName,
+		allocatedPort,
+		containerNames
+	    );
+	} else {
+
+	    try {
+		//System.out.printf("\n\nInitialState substring: %s\n\n", initialState);
+		property = ServiceProperty.createFromJsonString(initialState);
+	    } catch (JSONException e) {
+		throw new RuntimeException("Invalid initial state as JSON: " + e);
+	    }
+
+	    // Prepares container names for each service component.
+	    // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
+	    // Example : c0.e2.bookcatalog.ar2.xdn.io
+	    List<String> containerNames = new ArrayList<>();
+	    int idx = 0;
+	    int epoch = 0;
+	    for (ServiceComponent c : property.getComponents()) {
+		String containerName = String.format("c%d.e%d.%s.%s.xdn.io",
+		    idx, epoch, serviceName, myNodeId);
+		containerNames.add(containerName);
+		idx++;
+	    }
+
+	    // prepare the initialized service
+	    service = new ServiceInstance(
+		property,
+		serviceName,
+		networkName,
+		containerNames
+	    );
+	}
+
+	// store service
+	this.services.put(serviceName, service);
+	this.servicePlacementEpoch.put(serviceName, initialPlacementEpoch);
+
+	if (this.serviceInstances.containsKey(serviceName)) {
+	    this.serviceInstances.get(serviceName).put(initialPlacementEpoch, service);
+	} else {
+	    Map<Integer, ServiceInstance> epochToInstanceMap = new ConcurrentHashMap<>();
+	    epochToInstanceMap.put(initialPlacementEpoch, service);
+	    this.serviceInstances.put(serviceName, epochToInstanceMap);
+
+	}
+	
+	return true;
     }
 
     /**
@@ -603,14 +727,35 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      */
     private boolean initContainerizedService2(String serviceName) {
         System.out.printf("%s:XGA.initContainerizedService2(service=%s)\n", this.myNodeId, serviceName);
-        int initialPlacementEpoch = 0;
+
+	/*
+	String out1 = String.format("%s:XGA.initContainerizedService2() - name=%s", this.myNodeId, serviceName);
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] " + out1 + " START []==========[]\n"
+	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
+	    + "[]==========[] " + out1 + " END []==========[]"
+	);
+	*/
+
+        int initialPlacementEpoch = this.servicePlacementEpoch.get(serviceName);
+	assertNotNull("initialPlacementEpoch must not be null", initialPlacementEpoch);
 
         // decode the initial state, containing the service property
-        //String networkName = String.format("net::%s:%s", myNodeId, serviceName);
-        ServiceInstance service = this.services.get(serviceName);
+        // String networkName = String.format("net::%s:%s", myNodeId, serviceName);
+        ServiceInstance service = this.serviceInstances.get(serviceName).get(initialPlacementEpoch);
         if (service == null) {
             throw new RuntimeException("Service instance not found");
         }
+
+	if (service.initializationSucceed) {
+	    System.out.printf("%s:XGA.initContainerizedService2(service=%s) - Service already initialized. Cancelling new initialization...\n", this.myNodeId, serviceName);
+	    return true;
+	}
 
         int allocatedPort = getRandomPort();
         service.allocatedHttpPort = allocatedPort;
@@ -643,6 +788,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         ));
 
         stateDiffRecorder.preInitialization(serviceName, initialPlacementEpoch);
+        stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
 
         // actually start the service, run each component as container, in the same order as they
         // are specified in the declared service property.
@@ -674,6 +820,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                     "initial state");
         } else {
             stateDiffRecorder.postInitialization(serviceName, initialPlacementEpoch);
+	    service.initializationSucceed = true;
         }
 
         // store all the current service metadata
@@ -691,6 +838,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private boolean isContainerRunning(String containerName) {
+	System.out.printf("%s:XGA.isContainerRunning() - name=%s\n", this.myNodeId, containerName);
         // If container is already running, the docker inspect command will return 0.
         String inspectCommand = String.format("docker inspect --type=container %s", containerName);
         int code = Shell.runCommand(inspectCommand, true);
@@ -708,9 +856,21 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      */
     private boolean reviveContainerizedService(String serviceName, String encodedServiceProperty,
                                                String prevEpochFinalState, int placementEpoch) {
+	System.out.printf("%s:XGA.reviveContainerizedService() - name=%s, epoch=%d\n", this.myNodeId, serviceName, placementEpoch);
+
         assert serviceName != null && !serviceName.isEmpty();
         assert encodedServiceProperty != null && !encodedServiceProperty.isEmpty();
         assert placementEpoch > 0 : "expecting non initial epoch";
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] CHECKPOINT START []==========[]");
+	System.out.println("Stack Trace:\n\tat " + stackTraceString);
+	System.out.println("[]==========[] CHECKPOINT END []==========[]");
+
 
         Integer currEpoch = this.getEpoch(serviceName);
         if (currEpoch != null && currEpoch >= placementEpoch) {
@@ -841,6 +1001,9 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private boolean deleteContainerizedServiceInstance(String serviceName, int placementEpoch) {
+	//System.out.printf("\t\t[][] DEBUG 7 - serviceInstances: %s\n", this.serviceInstances.toString());
+	System.out.printf("%s:XGA.deleteContainerizedServiceInstance() - name=%s, epoch=%d\n", this.myNodeId, serviceName, placementEpoch);
+
         assert serviceName != null && !serviceName.isEmpty();
         assert placementEpoch >= 0;
         System.out.println(">>> Deleting a containerized service name=" + serviceName +
@@ -919,6 +1082,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      * startContainer runs the bash command below to start running a docker container.
      */
     private boolean startContainer(XdnServiceProperties properties, String networkName) {
+	System.out.printf("%s:XGA.startContainer() - name=%s\n", this.myNodeId, properties.serviceName);
+
         if (recorderType.equals(RecorderType.FUSELOG)) {
             return startContainerWithFSMount(properties, networkName);
         }
@@ -938,6 +1103,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private boolean startContainerWithFSMount(XdnServiceProperties properties, String networkName) {
+	System.out.printf("%s:XGA.startContainerWithFSMount() - name=%s\n", this.myNodeId, properties.serviceName);
+
         String containerName = String.format("%s.%s.xdn.io",
                 properties.serviceName, this.myNodeId);
 
@@ -1021,6 +1188,21 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private boolean stopContainer(String containerName) {
+	System.out.printf("%s:XGA.stopContainer() - name=%s\n", this.myNodeId, containerName);
+	/*
+	String out1 = String.format("%s:XGA.stopContainer() - name=%s", this.myNodeId, containerName);
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] " + out1 + " START []==========[]\n"
+	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
+	    + "[]==========[] " + out1 + " END []==========[]"
+	);
+	*/
+
         String stopCommand = String.format("docker container stop %s", containerName);
         int exitCode = runShellCommand(stopCommand, true);
         if (exitCode != 0 && exitCode != 1) {
@@ -1033,6 +1215,21 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private boolean removeContainer(String containerName) {
+	System.out.printf("%s:XGA.removeContainer() - name=%s\n", this.myNodeId, containerName);
+	/*
+	String out1 = String.format("%s:XGA.removeContainer() - name=%s", this.myNodeId, containerName);
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] " + out1 + " START []==========[]\n"
+	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
+	    + "[]==========[] " + out1 + " END []==========[]"
+	);
+	*/
+
         String removeCommand = String.format("docker container rm --force %s", containerName);
         int exitCode = runShellCommand(removeCommand, true);
         if (exitCode != 0 && exitCode != 1) {
@@ -1045,6 +1242,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private int createDockerNetwork(String networkName) {
+	System.out.printf("%s:XGA.createDockerNetwork() - network=%s\n", this.myNodeId, networkName);
         String createNetCmd = String.format("docker network create %s",
                 networkName);
         int exitCode = runShellCommand(createNetCmd, false);
@@ -1053,10 +1251,13 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             System.err.println("Error: failed to create network");
             return exitCode;
         }
+
         return 0;
     }
 
     private String copyContainerDirectory(String serviceName) {
+	System.out.printf("%s:XGA.copyContainerDirectory() - name=%s\n", this.myNodeId, serviceName);
+
         ServiceInstance service = services.get(serviceName);
         if (service == null) {
             throw new RuntimeException("unknown service " + serviceName);
@@ -1111,6 +1312,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
     }
 
     private String captureStatediffWithFuse(XdnServiceProperties properties) {
+	System.out.printf("%s:XGA.captureStatediffWithFuse() - name=%s\n", this.myNodeId, properties.serviceName);
+
         try {
             SocketChannel fsConn = fsSocketConnection.get(properties.serviceName);
 
@@ -1320,6 +1523,8 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      * @return true on success.
      */
     private boolean captureContainerizedServiceFinalState(String serviceName, int epoch) {
+	System.out.printf("%s:XGA.captureContainerizedServiceFinalState() - name=%s, epoch=%d\n", this.myNodeId, serviceName, epoch);
+
         String finalStateDirPath = String.format("/tmp/xdn/final_tmp/%s/%s/%d/",
                 this.myNodeId, serviceName, epoch);
 
@@ -1349,11 +1554,48 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         code = Shell.runCommand(createDirCommand, true);
         assert code == 0;
 
+	// Wait until docker instance stops
+	// Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
+	// Example : c0.e2.bookcatalog.ar2.xdn.io
+	// Assumes c0 = Stateful component
+	/*
+	String containerName = String.format("c0.e%d.%s.%s.xdn.io", epoch, serviceName, this.myNodeId);
+
+	int MAX_ITER = 50;
+	int count = 0;
+	while (++count < MAX_ITER) {
+	    ShellOutput output = Shell.runCommandWithOutput("docker ps", true);
+
+	    if (!output.stdout.contains(containerName)) {
+		System.out.printf("XGA.captureContainerizedServiceFinalState() - %s has stopped running. Capturing final state...\n", containerName);
+		break;
+	    }
+
+	    System.out.printf("XGA.captureContainerizedServiceFinalState() - %s is still running, checking in another 1 second. (iter=%d)\n", containerName, count);
+	    try {
+		Thread.sleep(1000);
+	    } catch (InterruptedException e) {
+		e.printStackTrace();
+	    }
+	}
+	*/
+
         // Copy the service state into the prepared directory.
         String hostMountDir = stateDiffRecorder.getTargetDirectory(serviceName, epoch);
-        String stateCopyCommand = String.format("cp -a %s %s", hostMountDir, finalStateDirPath);
-        code = Shell.runCommand(stateCopyCommand, true);
-        assert code == 0;
+        String stateCopyCommand = String.format("rsync -a %s %s", hostMountDir, finalStateDirPath);
+
+        int count = 0;
+        while (true) {
+            if (++count >= 10) {
+                System.out.printf("XGA.captureFinalState() - rsync failed after %d iterations\n", count);
+                break;
+            }
+
+            System.out.printf("XGA.captureFinalState(iter=%d) - Running rsync\n", count);
+
+	    int exitCode = Shell.runCommand(stateCopyCommand, false);
+            if (exitCode == 0) break;
+        }
 
         // Archive the final state into a tar file
         String finalStateTarDirPath = String.format("/tmp/xdn/final/%s/%s/%d/",
@@ -1365,6 +1607,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         code = Shell.runCommand(createTarDirCommand, true);
         assert code == 0;
         String finalStateTarFilePath = finalStateTarDirPath + "final_state.tar";
+
         ZipFiles.zipDirectory(new File(finalStateDirPath), finalStateTarFilePath);
 
         return true;
@@ -1372,9 +1615,23 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
     @Override
     public String getFinalState(String name, int epoch) {
+	System.out.printf("%s:XGA.getFinalState() - name=%s, epoch=%d\n", this.myNodeId, name, epoch);
         // TODO: validate whether this works with PrimaryBackup or not
         System.out.println(">>> " + this.myNodeId + ":XdnGigapaxosApp - getFinalState name=" +
                 name + " epoch=" + epoch);
+
+	/*
+	System.out.println("[]==========[] CHECKPOINT START []==========[]");
+        System.out.println(">> XDNGigapaxosApp:" + this.myNodeId + " - checkpoint ... name=" + name);
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("Stack Trace:\n\tat " + stackTraceString);
+	System.out.println("[]==========[] CHECKPOINT END []==========[]");
+	*/
+
 
         // Validate the service instance
         Map<Integer, ServiceInstance> epochToInstanceMap = this.serviceInstances.get(name);
@@ -1401,23 +1658,37 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             assert isCaptureSuccess;
         }
 
-        // Convert the final state archive into String
-        // Read the archive and convert into string
-        byte[] finalStateBytes = null;
+	// Equivalent to 500 Kb
+	int maxBytes = 62500;
         String finalStatePrefix =
                 String.format("%s%d:", ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX, epoch);
-        try {
-            finalStateBytes = Files.readAllBytes(Paths.get(finalStatePath));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
-        // combine the prefix with the actual final state
-        // format: xdn:final:<epoch>::<serviceProperty>::<finalState>
-        return String.format("%s:%s::%s",
-                finalStatePrefix,
-                serviceInstance.property.toJsonString(),
-                Base64.getEncoder().encodeToString(finalStateBytes));
+	if (finalStateArchive.length() <= maxBytes) {
+	    // Convert the final state archive into String
+	    // Read the archive and convert into string
+	    byte[] finalStateBytes = null;
+	    try {
+		finalStateBytes = Files.readAllBytes(Paths.get(finalStatePath));
+	    } catch (IOException e) {
+		throw new RuntimeException(e);
+	    }
+
+	    // combine the prefix with the actual final state
+	    // format: xdn:final:<epoch>::<serviceProperty>::<finalState>
+	    return String.format("%s:%s::%s",
+		finalStatePrefix,
+		serviceInstance.property.toJsonString(),
+		Base64.getEncoder().encodeToString(finalStateBytes));
+	} else {
+	    // send directory path.
+	    String finalStateUrl = this.largeCheckpointer.createCheckpointHandle(this.myNodeId, finalStatePath);
+
+	    // format: xdn:final:<epoch>::<serviceProperty>::url:<finalStateUrl>
+	    return String.format("%s:%s::url:%s",
+		finalStatePrefix,
+		serviceInstance.property.toJsonString(),
+		finalStateUrl);
+	}
     }
 
     @Override
@@ -1488,6 +1759,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
                                    String hostName, Integer exposedPort, Integer publishedPort,
                                    Integer allocatedHttpPort, String mountDirSource,
                                    String mountDirTarget, Map<String, String> env) {
+	System.out.printf("%s:XGA.startContainer() - name=%s\n", this.myNodeId, containerName);
 
         String publishPortSubCmd = "";
         if (publishedPort != null && allocatedHttpPort != null) {
@@ -1531,9 +1803,10 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
         // Run with arbitrary user if the container is stateful
         // Only been tested on PostgreSQL, MySQL, MariaDb
+	// --cap-add is for MySQL reconfiguration to allow it to handle errors silently
         if (uid != 0 && mountDirTarget != null && !mountDirTarget.isEmpty()) {
             userSubCmd = String.format(
-                "-v /etc/passwd:/etc/passwd:ro --user=%d:%d", 
+                "-v /etc/passwd:/etc/passwd:ro --user=%d:%d --cap-add=sys_nice", 
                 uid, gid
             );
         }
@@ -1771,9 +2044,19 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *********************************************************************************************/
     // This function is only called by the primary replica
     public void nonDeterministicInitialization(String serviceName, Map<String, InetAddress> ipAddresses) {
-        ServiceInstance service = this.services.get(serviceName);
+	System.out.printf("%s:XGA.nonDeterministicInitialization() - name=%s\n", this.myNodeId, serviceName);
+
+        int placementEpoch = this.servicePlacementEpoch.get(serviceName);
+	assertNotNull("placementEpoch must not be null", placementEpoch);
+
+        ServiceInstance service = this.serviceInstances.get(serviceName).get(placementEpoch);
         if (service == null) 
             throw new RuntimeException(String.format("%s: service %s not found.", myNodeId, serviceName));
+
+	if (service.initializationSucceed) {
+	    System.out.printf("%s:XGA.nonDeterministicInitialization(service=%s) - Service already initialized. Cancelling new initialization...\n", this.myNodeId, serviceName);
+	    return;
+	}
 
         String databaseImage = service.property.getStatefulComponent().getImageName().split(":")[0];
 
@@ -1782,10 +2065,10 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
         int migrateWaitTime = 5;
         int numOfLines = 10;
         switch (databaseImage) {
-            case "mysql":       dbReadyMsg = "MySQL init process done. Ready for start up"; migrateWaitTime = 35; break;
+            case "mysql":       dbReadyMsg = "mysqld: ready for connections"; migrateWaitTime = 60; break;
             case "postgres":    dbReadyMsg = "database system is ready to accept connections"; migrateWaitTime = 10; break;
-            case "mariadb":     dbReadyMsg = "mariadbd: ready for connections"; migrateWaitTime = 20; break;
-            case "mongo":       dbReadyMsg = "Waiting for connections"; migrateWaitTime = 10; numOfLines = 20; break;
+            case "mariadb":     dbReadyMsg = "mariadbd: ready for connections"; migrateWaitTime = 30; break;
+            case "mongo":       dbReadyMsg = "Waiting for connections"; migrateWaitTime = 30; numOfLines = 100; break;
             default:
                 System.out.printf("Database unknown. Timeout for 5 seconds to wait for database to initialize...\n");
                 try {
@@ -1802,12 +2085,13 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             Pattern p = Pattern.compile(dbReadyMsg);
 
             int iter = 0;
-            int MAX_ITER = 50;
+            int MAX_ITER = 100;
 
             // Assumes that the stateful container is always the first 
             // declared service property (not always the case)
             int idx = 0;
-            int epoch = 0;
+            int epoch = this.servicePlacementEpoch.get(serviceName);
+
             ShellOutput commandOutput = null;
 
             // Format  : c<component-id>.e<reconfiguration-epoch>.<service-name>.<node-id>.xdn.io
@@ -1840,7 +2124,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
 
                 // Wait 1 seconds
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(3000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -1856,8 +2140,9 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             e.printStackTrace();
         }
 
-        int placementEpoch = 0;
         this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses, placementEpoch);
+        //this.stateDiffRecorder.postInitialization(serviceName, placementEpoch);
+	service.initializationSucceed = true;
     }
 
     /**********************************************************************************************

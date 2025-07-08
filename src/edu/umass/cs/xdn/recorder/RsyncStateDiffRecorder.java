@@ -75,21 +75,31 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         // remove and then re-create target mnt dir
         // e.g., /tmp/xdn/state/rsync/node1/mnt/service1/e0/
         String targetDirPath = this.getTargetDirectory(serviceName, placementEpoch);
-        String removeDirCommand = String.format("rm -rf %s", targetDirPath);
-        int code = Shell.runCommand(removeDirCommand);
-        assert code == 0;
-        String createDirCommand = String.format("mkdir -p %s", targetDirPath);
-        code = Shell.runCommand(createDirCommand);
-        assert code == 0;
+
+	File targetDir = new File(targetDirPath);
+
+	//String removeDirCommand = String.format("rm -rf %s", targetDirPath);
+	//int code = Shell.runCommand(removeDirCommand);
+	//assert code == 0;
+	
+	if (!targetDir.exists()) {
+	    System.out.printf("Rsync.preInitialization() - Directory %s doesn't exist. Creating...\n", targetDirPath);
+
+	    String createDirCommand = String.format("mkdir -p %s", targetDirPath);
+	    int code = Shell.runCommand(createDirCommand);
+	    assert code == 0;
+	} else {
+	    System.out.printf("Rsync.preInitialization() - Directory %s exist.\n", targetDirPath);
+	}
 
         // remove and then re-create snapshot dir
         // e.g., /tmp/xdn/state/rsync/node1/snp/service1/e0/
         String snapshotDirPath = String.format("%s%s/e%d/",
                 this.baseSnapshotDirPath, serviceName, placementEpoch);
-        removeDirCommand = String.format("rm -rf %s", snapshotDirPath);
-        code = Shell.runCommand(removeDirCommand);
+        String removeDirCommand = String.format("rm -rf %s", snapshotDirPath);
+        int code = Shell.runCommand(removeDirCommand);
         assert code == 0;
-        createDirCommand = String.format("mkdir -p %s", snapshotDirPath);
+        String createDirCommand = String.format("mkdir -p %s", snapshotDirPath);
         code = Shell.runCommand(createDirCommand);
         assert code == 0;
 
@@ -123,7 +133,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         int removeTargetDirRetCode = Shell.runCommand("rm -rf " + targetDestDir);
         int removeDiffDirRetCode = Shell.runCommand("rm -rf " + targetDiffFile);
         int copySnapshotRetCode = Shell.runCommand(
-                String.format("cp -a %s %s", targetSourceDir, targetDestDir));
+                String.format("cp -a %s %s", targetSourceDir, targetDestDir), false);
 
         System.out.printf("Rsync removeTargetDirRetCode=%d, removeDiffDirRetCode=%d, copySnapshotRetCode=%d\n",
             removeTargetDirRetCode, removeDiffDirRetCode, copySnapshotRetCode
@@ -171,6 +181,14 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        long bytes = stateDiff.length;
+        double kb = (double) bytes / 1024;
+        double mb = kb / 1024;
+
+        System.out.printf(
+            "RsyncRecorder.captureStateDiff() - uncompressed stateDiff size = %d bytes, %.2fKB, %.2fMB \n", 
+            bytes, kb, mb
+        );
 
         // compress stateDiff
         byte[] compressedStateDiff;

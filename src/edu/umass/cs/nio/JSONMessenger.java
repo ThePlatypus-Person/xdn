@@ -228,6 +228,7 @@ public class JSONMessenger<NodeIDType> implements
 									isPresent });
 				}
 
+		/*
                 String regex1 = "\"SNDR\":([0123456789]+),.*\\}";
                 Pattern pattern1 = Pattern.compile(regex1);
                 Matcher matcher1 = pattern1.matcher(message);
@@ -249,6 +250,7 @@ public class JSONMessenger<NodeIDType> implements
                     "%s::JSONM.send(msgID=%s, msgSender=%s, recipient=[%s])\n", 
                     status, id, sender, mtask.recipients[r]
                 );
+		*/
 			}
 		}
 		if (thrown != null)

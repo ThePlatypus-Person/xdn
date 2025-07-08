@@ -612,6 +612,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             currentEpoch = newPrimaryEpoch;
         }
 
+	System.out.printf("%s:PBM.executeStartEpochPacket() - service=%s, currEpoch=%s, primaryEpoch=%s\n", this.myNodeID, groupName, currentEpoch, newPrimaryEpoch);
+
         // receive smaller, ignore that epoch.
         // receive current epoch from myself, ignore the StartEpoch packet as it already
         // handled via callback of propose(StartEpoch)
@@ -700,11 +702,32 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                                                String initialState,
                                                Set<NodeIDType> nodes,
                                                String placementMetadata) {
+	/*
         System.out.printf("%s:PBM.createPrimaryBackupInstance(service=%s, epoch=%d, nodes=%s, initState=%s)",
                 myNodeID, groupName, placementEpoch, nodes.toString(), initialState
         );
+	*/
 
-        initialState = String.format("nondeter:create:%s", initialState);
+	/*
+	String out1 = String.format("%s:PBM.createPrimaryBackupInstance() - name=%s, epoch=%d", myNodeID, groupName, placementEpoch);
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.println("[]==========[] " + out1 + " START []==========[]\n"
+	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
+	    + "[]==========[] " + out1 + " END []==========[]"
+	);
+	*/
+
+
+        if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX) |
+	    initialState.startsWith(ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX)
+	) {
+            initialState = String.format("nondeter:create:%s", initialState);
+        }
 
         // this.paxosMiddlewareApp = XdnGigapaxosApp
         boolean created = this.paxosManager.createPaxosInstanceForcibly(
@@ -732,12 +755,12 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         //   - if preferred coordinator is not specified: detect paxos leader -> set primary
 
         if (placementMetadata != null) {
-            boolean isInitSuccess = this.initializePrimaryEpoch(groupName, placementMetadata);
+            boolean isInitSuccess = this.initializePrimaryEpoch(groupName, nodes, placementMetadata, placementEpoch);
             assert isInitSuccess;
             return true;
         }
 
-        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes);
+        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, placementEpoch);
         if (!isInitializationSuccess) {
             System.out.printf("Failed to initialize replica group for %s\n", groupName);
             return false;
@@ -746,11 +769,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         return true;
     }
 
-    private boolean initializePrimaryEpoch(String groupName, String placementMetadata) {
+    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes, String placementMetadata, int placementEpoch) {
         assert groupName != null && !groupName.isEmpty();
         assert placementMetadata != null && !placementMetadata.isEmpty();
 
-        // System.out.println(">>> initialize with placement metadata " + placementMetadata);
+        System.out.println("\t\tPBM.initializePrimaryEpoch() - initialize with placement metadata " + placementMetadata);
         this.currentRole.put(groupName, Role.BACKUP);
 
         // attempts to parse the metadata
@@ -778,12 +801,19 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 throw new RuntimeException(e);
             }
 
+            Map<String, InetAddress> ipAddresses = new HashMap<>();
+            NodeConfig<NodeIDType> initNodeConfig = this.messenger.getNodeConfig();
+            nodes.forEach(node -> ipAddresses.put(
+                String.valueOf(node).toLowerCase(), 
+                initNodeConfig.getNodeAddress(node)
+            ));
 
-            // System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
-            PrimaryEpoch<NodeIDType> zero = new PrimaryEpoch<>(myNodeID, 0);
+            System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
+            // PrimaryEpoch<NodeIDType> zero = new PrimaryEpoch<>(myNodeID, 0);
+            PrimaryEpoch<NodeIDType> epoch = new PrimaryEpoch<>(myNodeID, placementEpoch);
             this.currentRole.put(groupName, Role.PRIMARY_CANDIDATE);
-            this.currentPrimaryEpoch.put(groupName, zero);
-            StartEpochPacket startPacket = new StartEpochPacket(groupName, zero);
+            this.currentPrimaryEpoch.put(groupName, epoch);
+            StartEpochPacket startPacket = new StartEpochPacket(groupName, epoch);
             this.paxosManager.propose(
                     groupName,
                     startPacket,
@@ -792,9 +822,25 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                                 myNodeID, groupName);
                         currentRole.put(groupName, Role.PRIMARY);
                         currentPrimary.put(groupName, this.myNodeID);
-                        currentPrimaryEpoch.put(groupName, zero);
+                        currentPrimaryEpoch.put(groupName, epoch);
                         processOutstandingRequests();
 
+			PrimaryBackupMiddlewareApp middleware;
+			XdnGigapaxosApp xdnApp;
+
+			if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
+			    return;
+
+			middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
+
+			if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
+			    return;
+
+			System.out.println(">> Handling non-deterministic service initialization");
+			xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
+
+			xdnApp.restore(groupName, "nondeter:start:");
+			xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
                     }
             );
 
@@ -805,7 +851,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         return true;
     }
 
-    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes) {
+    private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes, int placementEpoch) {
         this.currentRole.put(groupName, Role.BACKUP);
         NodeIDType paxosCoordinatorID = this.paxosManager.getPaxosCoordinator(groupName);
         if (paxosCoordinatorID == null) {
@@ -825,10 +871,10 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             ));
 
             System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
-            PrimaryEpoch<NodeIDType> zero = new PrimaryEpoch<>(myNodeID, 0);
+            PrimaryEpoch<NodeIDType> epoch = new PrimaryEpoch<>(myNodeID, placementEpoch);
             this.currentRole.put(groupName, Role.PRIMARY_CANDIDATE);
-            this.currentPrimaryEpoch.put(groupName, zero);
-            StartEpochPacket startPacket = new StartEpochPacket(groupName, zero);
+            this.currentPrimaryEpoch.put(groupName, epoch);
+            StartEpochPacket startPacket = new StartEpochPacket(groupName, epoch);
             this.paxosManager.propose(
                 groupName,
                 startPacket,
@@ -840,7 +886,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
                     currentRole.put(groupName, Role.PRIMARY);
                     currentPrimary.put(groupName, paxosCoordinatorID);
-                    currentPrimaryEpoch.put(groupName, zero);
+                    currentPrimaryEpoch.put(groupName, epoch);
                     processOutstandingRequests();
 
                     PrimaryBackupMiddlewareApp middleware;
@@ -860,6 +906,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     xdnApp.restore(groupName, "nondeter:start:");
                     xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
 
+		    /*
                     Set<NodeIDType> backupNodes = nodes.stream()
                         .filter(node -> !node.equals(myNodeID))
                         .collect(Collectors.toSet());
@@ -873,6 +920,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     } catch (IOException | JSONException e) {
                         throw new RuntimeException(e);
                     }
+		    */
 
                     System.out.println("\n>>> non-deterministic service initialization complete\n");
                 }

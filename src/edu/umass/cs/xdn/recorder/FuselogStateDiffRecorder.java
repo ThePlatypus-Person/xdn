@@ -1,6 +1,7 @@
 package edu.umass.cs.xdn.recorder;
 
 import edu.umass.cs.xdn.utils.Shell;
+import edu.umass.cs.xdn.utils.ShellOutput;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -15,10 +16,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -107,15 +114,23 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
     @Override
     public boolean preInitialization(String serviceName, int placementEpoch) {
-        String targetDir = this.getTargetDirectory(serviceName, placementEpoch);
-        //String socketFile = baseSocketDirPath + serviceName + "::" + placementEpoch + ".sock";
+        String targetDirPath = this.getTargetDirectory(serviceName, placementEpoch);
+        String socketFile = baseSocketDirPath + serviceName + "::" + placementEpoch + ".sock";
 
         // create target mnt dir, if not exist
         // e.g., /tmp/xdn/state/fuselog/node1/mnt/service1/
-        Shell.runCommand("sudo umount " + targetDir + " > /dev/null 2>&1");
-        Shell.runCommand("rm -rf " + targetDir);
-        int code = Shell.runCommand("mkdir -p " + targetDir);
-        assert code == 0 : "statediff dir creation must success";
+	File targetDir = new File(targetDirPath);
+
+	if (!targetDir.exists()) {
+	    System.out.printf("Fuselog.preInitialization() - Directory %s doesn't exist. Creating...\n", targetDirPath);
+
+	    String createDirCommand = String.format("mkdir -p %s", targetDirPath);
+	    int code = Shell.runCommand(createDirCommand);
+	    assert code == 0;
+	} else {
+	    System.out.printf("Rsync.preInitialization() - Directory %s exist. Unmounting fuselog\n", targetDirPath);
+	    Shell.runCommand("fusermount -u " + targetDirPath);
+	}
 
         /*
         // initialize file system in the mnt dir, with socket
@@ -155,6 +170,8 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
     @Override
     public boolean postInitialization(String serviceName, int placementEpoch) {
+        System.out.printf("FUSE.postInitialization(serviceName=%s, placementEpoch=%d)\n", serviceName, placementEpoch);
+
         // TODO: read initialization stateDiff and discard it
         String targetDir = this.getTargetDirectory(serviceName, placementEpoch);
         String socketFile = baseSocketDirPath + serviceName + "::" + placementEpoch + ".sock";
@@ -163,11 +180,11 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         assert targetDir.length() > 1 : "invalid target mount directory";
         // remove the trailing '/' at the end of targetDir
         String targetDirPath = targetDir.substring(0, targetDir.length() - 1);
-        String cmd = String.format("%s -s -o allow_other -o allow_root %s",
-                FUSELOG_BIN_PATH, targetDirPath);
+        String cmd = String.format("%s %s", FUSELOG_BIN_PATH, targetDirPath);
+
         Map<String, String> env = new HashMap<>();
         env.put("FUSELOG_SOCKET_FILE", socketFile);
-        int exitCode = Shell.runCommand(cmd, false, env);
+        int exitCode = Shell.runCommandThread(cmd, false, env);
         assert exitCode == 0 : "failed to mount filesystem with exit code " + exitCode;
 
         // initialize socket client for the filesystem
@@ -175,6 +192,14 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         UnixDomainSocketAddress address = UnixDomainSocketAddress.of(Path.of(socketFile));
         try {
             socketChannel = SocketChannel.open(StandardProtocolFamily.UNIX);
+
+	    // Wait 0.5 seconds for fuselog to start
+            try {
+		Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             boolean isConnEstablished = socketChannel.connect(address);
             if (!isConnEstablished) {
                 System.err.println("failed to connect to the filesystem");
@@ -229,7 +254,14 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
         long stateDiffSize = sizeBuffer.getLong(0);
         
-        System.out.println(">> stateDiff size=" + stateDiffSize);
+        System.out.printf(
+            ">> stateDiff size = %d bytes (%.2f KB, %.2f MB)%n",
+            stateDiffSize,
+            stateDiffSize / 1024.0,
+            stateDiffSize / (1024.0 * 1024)
+        );
+
+        //System.out.println(">> stateDiff size=" + stateDiffSize);
         assert stateDiffSize >= 0 : String.format(" stateDiffSize %d is less than zero.", stateDiffSize);
 
         // read all the stateDiff
@@ -245,7 +277,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         }
         System.out.println(">> complete reading stateDiff ...");
         String stateDiff = Base64.getEncoder().encodeToString(stateDiffBuffer.array());
-        // System.out.println(">> read stateDiff: " + stateDiff);
+        //System.out.println(">> read stateDiff: " + stateDiff);
 
         // convert the stateDiff into String
         return stateDiff;
@@ -253,7 +285,10 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
     @Override
     public boolean applyStateDiff(String serviceName, int placementEpoch, String encodedState) {
-        System.out.printf("FUSE.applyStateDiff(serviceName=%s, encodedState=%s)\n", serviceName, encodedState);
+        System.out.printf("FUSE.applyStateDiff(serviceName=%s, placementEpoch=%d)\n", 
+                serviceName, placementEpoch);
+        // System.out.printf("FUSE.applyStateDiff(serviceName=%s, placementEpoch=%d, encodedState=%s)\n", 
+        //      serviceName, placementEpoch, encodedState);
         // TODO: directly apply stateDiff from the obtained byte[], not via
         //  the fuselog-apply program, which we currently use.
 
@@ -274,12 +309,12 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         }
 
         // preparing the shell command to apply stateDiff
-        /*
-        String cmd = String.format("%s %s --silent --statediff=%s",
-                FUSELOG_APPLY_BIN_PATH, targetDir, diffFile);
-        */
         String cmd = String.format("%s %s --statediff=%s",
                 FUSELOG_APPLY_BIN_PATH, targetDir, diffFile);
+        /*
+        String cmd = String.format("%s %s --statediff=%s",
+                FUSELOG_APPLY_BIN_PATH, targetDir, diffFile);
+        */
         int exitCode = Shell.runCommand(cmd, true);
         assert exitCode == 0 : "failed to apply stateDiff with exit code " + exitCode;
 
@@ -289,7 +324,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public boolean removeServiceRecorder(String serviceName, int placementEpoch) {
         String targetDir = this.getTargetDirectory(serviceName, placementEpoch);
-        int umountRetCode = Shell.runCommand("sudo umount " + targetDir + " > /dev/null 2>&1", false);
+	int umountRetCode = Shell.runCommand("fusermount -u " + targetDir, true);
         int rmRetCode = Shell.runCommand("rm -rf " + targetDir, false);
         assert rmRetCode == 0;
         return true;
@@ -306,6 +341,8 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
     @Override
     public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
+        System.out.printf("%s:FUSE.initContainerSync(serviceName=%s, placementEpoch=%d)\n", myNodeId, serviceName, placementEpoch);
+
         Set<String> backupNodes = ipAddresses.keySet().stream()
             .filter(node -> !node.equals(myNodeId.toString()))
             .map(String::toLowerCase)
@@ -324,6 +361,9 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         // Copy data to other replicas
         Boolean allSyncSuccess = false;
         int count = 0;
+
+	ExecutorService executor = Executors.newFixedThreadPool(backupReplicas.size());
+
         while (!allSyncSuccess) {
             if (++count > 10) {
                 throw new RuntimeException("Failed running rsync after 10 iterations");
@@ -331,35 +371,69 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
 
             allSyncSuccess = true;
 
-            for (String key: backupReplicas.keySet()) {
-                int exitCode = Shell.runCommand(String.format("""
-                    rsync -avz --delete --human-readable \
-                    --include='mnt/' --include='%s' --include='%s***' \
-                    --exclude='*' \
-                    %s %s@%s:%s""", 
-                    mntDir, mntDir, currentReplica, 
-                    username, ipAddresses.get(key).getHostAddress(),
-                    backupReplicas.get(key)
-                ), true);
+	    List<Future<Boolean>> futures = new ArrayList<>();
 
-                if (exitCode != 0) {
-                    System.out.println(String.format(
-                        "Failed to sync %s to %s", currentReplica, backupReplicas.get(key)
-                    ));
-                    allSyncSuccess = false;
-                }
+            for (String key: backupReplicas.keySet()) {
+		final String replicaKey = key;
+
+		futures.add(executor.submit(() -> {
+		    int exitCode = Shell.runCommand(String.format("""
+			rsync -avz --delete --human-readable \
+			--include='mnt/' --include='%s' --include='%s***' \
+			--exclude='*' \
+			%s %s@%s:%s""", 
+			mntDir, mntDir, currentReplica, 
+			username, ipAddresses.get(replicaKey).getHostAddress(),
+			backupReplicas.get(key)
+		    ), true);
+
+		    if (exitCode != 0) {
+			System.out.println(String.format(
+			    "Failed to sync %s to %s", currentReplica, backupReplicas.get(key)
+			));
+			return false;
+		    }
+
+		    return true;
+		}));
             }
+
+
+	    for (Future<Boolean> future : futures) {
+		try {
+		    if (!future.get()) {
+			allSyncSuccess = false;
+		    }
+		} catch (InterruptedException | ExecutionException e) {
+		    e.printStackTrace();
+		    allSyncSuccess = false;
+		}
+	    }
 
             try {
                 Thread.sleep(3000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
+	    executor.shutdown();
         }
 
+        Map<Integer, SocketChannel> epochToChannelMap = serviceFsSocket.get(serviceName);
+        assert epochToChannelMap != null : "unknown fs socket client for " + serviceName;
+        SocketChannel socketChannel = epochToChannelMap.get(placementEpoch);
+        assert socketChannel != null : "unknown fs socket client for " + serviceName;
 
-        // Run to mount Fuselog in Primary replica
-        this.postInitialization(serviceName, placementEpoch);
+        // begin capturing statediff (c) in the filesystem
+        try {
+            System.out.println(">> clear stateDiffs...");
+            socketChannel.write(ByteBuffer.wrap("c".getBytes()));
+            System.out.println(">> Allow capture of stateDiffs...");
+            socketChannel.write(ByteBuffer.wrap("s".getBytes()));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         return;
     }
 

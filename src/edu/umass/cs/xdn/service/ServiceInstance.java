@@ -9,6 +9,11 @@ public class ServiceInstance {
 
     /** port in which this service receives HTTP request forwarded by XDN */
     public int allocatedHttpPort;
+    
+    /* Initialization Status 
+     * Needed as indicator if non-deterministic initialization was successful or not
+     */
+    public Boolean initializationSucceed;
 
     /** containerNames contains list of container names for each component in the service */
     public final List<String> containerNames;
@@ -23,6 +28,7 @@ public class ServiceInstance {
         this.serviceName = serviceName;
         this.networkName = networkName;
         this.containerNames = containerNames;
+	this.initializationSucceed = false;
 
         assert property.getComponents().size() == containerNames.size() :
                 "container names must be provided for all service component";
