@@ -19,170 +19,171 @@ import edu.umass.cs.utils.Util;
 
 /**
  * @author arun
- *
  */
 public class EchoRequest extends BasicReconfigurationPacket<InetSocketAddress>
-		implements ClientRequest {
+        implements ClientRequest {
 
-	private static enum Keys {
-		IS_REQUEST, CLOSEST, QID, SENT_TIME
-	};
+    private static enum Keys {
+        IS_REQUEST, CLOSEST, QID, SENT_TIME
+    }
 
-	/**
-	 * True if this is a request, false otherwise. Requests beget responses;
-	 * responses don't.
-	 */
-	private boolean isRequest;
-	/**
-	 * 
-	 */
-	public final long requestID;
+    ;
 
-	/**
-	 * 
-	 */
-	public final long sentTime;
-	/**
-	 * 
-	 */
-	public final InetSocketAddress myReceiver;
+    /**
+     * True if this is a request, false otherwise. Requests beget responses;
+     * responses don't.
+     */
+    private boolean isRequest;
+    /**
+     *
+     */
+    public final long requestID;
 
-	private final Map<InetAddress, Long> closest;
+    /**
+     *
+     */
+    public final long sentTime;
+    /**
+     *
+     */
+    public final InetSocketAddress myReceiver;
 
-	/**
-	 * @param initiator
-	 * @param closest
-	 */
-	public EchoRequest(InetSocketAddress initiator,
-			Map<InetAddress, Long> closest) {
-		super(initiator, ReconfigurationPacket.PacketType.ECHO_REQUEST, Config
-				.getGlobalString(RC.BROADCAST_NAME), 0);
-		this.isRequest = closest != null ? false : true;
-		this.closest = closest;
-		this.requestID = (long) (Math.random() * Long.MAX_VALUE);
-		this.myReceiver = null;
-		this.sentTime = System.currentTimeMillis();
-	}
+    private final Map<InetAddress, Long> closest;
 
-	/**
-	 * @param initiator
-	 */
-	public EchoRequest(InetSocketAddress initiator) {
-		this(initiator, null);
-	}
+    /**
+     * @param initiator
+     * @param closest
+     */
+    public EchoRequest(InetSocketAddress initiator,
+                       Map<InetAddress, Long> closest) {
+        super(initiator, ReconfigurationPacket.PacketType.ECHO_REQUEST, Config
+                .getGlobalString(RC.BROADCAST_NAME), 0);
+        this.isRequest = closest != null ? false : true;
+        this.closest = closest;
+        this.requestID = (long) (Math.random() * Long.MAX_VALUE);
+        this.myReceiver = null;
+        this.sentTime = System.currentTimeMillis();
+    }
 
-	/**
-	 * @param json
-	 * @param unstringer
-	 * @throws JSONException
-	 * @throws UnknownHostException
-	 */
-	public EchoRequest(JSONObject json, Stringifiable<?> unstringer)
-			throws JSONException, UnknownHostException {
-		super(json, ClientReconfigurationPacket.unstringer);
-		this.isRequest = json.has(Keys.IS_REQUEST.toString()) ? json
-				.getBoolean(Keys.IS_REQUEST.toString()) : false;
-		this.closest = json.has(Keys.CLOSEST.toString()) ? getClosest(json
-				.getJSONArray(Keys.CLOSEST.toString())) : null;
-		this.requestID = json.getLong(Keys.QID.toString());
-		this.myReceiver = MessageNIOTransport.getReceiverAddress(json);
-		this.setSender(MessageNIOTransport.getSenderAddress(json));
-		this.sentTime = json.getLong(Keys.SENT_TIME.toString());
-	}
+    /**
+     * @param initiator
+     */
+    public EchoRequest(InetSocketAddress initiator) {
+        this(initiator, null);
+    }
 
-	/**
-	 * @param json
-	 * @throws JSONException
-	 * @throws UnknownHostException
-	 */
-	public EchoRequest(JSONObject json) throws JSONException,
-			UnknownHostException {
-		this(json, ClientReconfigurationPacket.unstringer);
-	}
+    /**
+     * @param json
+     * @param unstringer
+     * @throws JSONException
+     * @throws UnknownHostException
+     */
+    public EchoRequest(JSONObject json, Stringifiable<?> unstringer)
+            throws JSONException, UnknownHostException {
+        super(json, ClientReconfigurationPacket.unstringer);
+        this.isRequest = json.has(Keys.IS_REQUEST.toString()) ? json
+                .getBoolean(Keys.IS_REQUEST.toString()) : false;
+        this.closest = json.has(Keys.CLOSEST.toString()) ? getClosest(json
+                .getJSONArray(Keys.CLOSEST.toString())) : null;
+        this.requestID = json.getLong(Keys.QID.toString());
+        this.myReceiver = MessageNIOTransport.getReceiverAddress(json);
+        this.setSender(MessageNIOTransport.getSenderAddress(json));
+        this.sentTime = json.getLong(Keys.SENT_TIME.toString());
+    }
 
-	public JSONObject toJSONObjectImpl() throws JSONException {
-		JSONObject json = super.toJSONObjectImpl();
-		json.put(Keys.IS_REQUEST.toString(), this.isRequest);
-		if (this.closest != null && !this.closest.isEmpty()) {
-			JSONArray jarray = new JSONArray();
-			int i = 0;
-			for (InetAddress addr : this.closest.keySet()) {
-				JSONArray element = new JSONArray();
-				element.put(0, addr.getHostAddress());
-				element.put(1, this.closest.get(addr));
-				jarray.put(i++, element);
-			}
-			json.put(Keys.CLOSEST.toString(), jarray);
-		}
-		json.put(Keys.QID.toString(), this.requestID);
-		json.put(Keys.SENT_TIME.toString(), this.sentTime);
-		return json;
-	}
+    /**
+     * @param json
+     * @throws JSONException
+     * @throws UnknownHostException
+     */
+    public EchoRequest(JSONObject json) throws JSONException,
+            UnknownHostException {
+        this(json, ClientReconfigurationPacket.unstringer);
+    }
 
-	private Map<InetAddress, Long> getClosest(JSONArray jarray)
-			throws UnknownHostException, JSONException {
-		if (jarray.length() > 0) {
-			Map<InetAddress, Long> nearest = new LinkedHashMap<InetAddress, Long>();
-			for (int i = 0; i < jarray.length(); i++) {
-				nearest.put(Util.getInetAddressFromString(jarray
-						.getJSONArray(i).getString(0)), jarray.getJSONArray(i)
-						.getLong(1));
-				// nearest.add(Util.getInetAddressFromString(jarray.getString(i)));
-			}
-			return nearest;
-		}
-		return null;
-	}
+    public JSONObject toJSONObjectImpl() throws JSONException {
+        JSONObject json = super.toJSONObjectImpl();
+        json.put(Keys.IS_REQUEST.toString(), this.isRequest);
+        if (this.closest != null && !this.closest.isEmpty()) {
+            JSONArray jarray = new JSONArray();
+            int i = 0;
+            for (InetAddress addr : this.closest.keySet()) {
+                JSONArray element = new JSONArray();
+                element.put(0, addr.getHostAddress());
+                element.put(1, this.closest.get(addr));
+                jarray.put(i++, element);
+            }
+            json.put(Keys.CLOSEST.toString(), jarray);
+        }
+        json.put(Keys.QID.toString(), this.requestID);
+        json.put(Keys.SENT_TIME.toString(), this.sentTime);
+        return json;
+    }
 
-	/**
-	 * @return True if this is a request from an external client to an active
-	 *         replica.
-	 */
-	public boolean isRequest() {
-		return this.isRequest;
-	}
+    private Map<InetAddress, Long> getClosest(JSONArray jarray)
+            throws UnknownHostException, JSONException {
+        if (jarray.length() > 0) {
+            Map<InetAddress, Long> nearest = new LinkedHashMap<InetAddress, Long>();
+            for (int i = 0; i < jarray.length(); i++) {
+                nearest.put(Util.getInetAddressFromString(jarray
+                        .getJSONArray(i).getString(0)), jarray.getJSONArray(i)
+                        .getLong(1));
+                // nearest.add(Util.getInetAddressFromString(jarray.getString(i)));
+            }
+            return nearest;
+        }
+        return null;
+    }
 
-	@Override
-	public long getRequestID() {
-		return this.requestID;
-	}
+    /**
+     * @return True if this is a request from an external client to an active
+     * replica.
+     */
+    public boolean isRequest() {
+        return this.isRequest;
+    }
 
-	@Override
-	public InetSocketAddress getClientAddress() {
-		return null;
-	}
+    @Override
+    public long getRequestID() {
+        return this.requestID;
+    }
 
-	@Override
-	public ClientRequest getResponse() {
-		this.isRequest = false;
-		return this;
-	}
+    @Override
+    public InetSocketAddress getClientAddress() {
+        return null;
+    }
 
-	/**
-	 * @return True if it has nonempty closest map.
-	 */
-	public boolean hasClosest() {
-		return this.closest != null && !this.closest.isEmpty();
-	}
+    @Override
+    public ClientRequest getResponse() {
+        this.isRequest = false;
+        return this;
+    }
 
-	/**
-	 * @param address
-	 * @return {@code this}.
-	 */
-	public EchoRequest makeResponse(InetSocketAddress address) {
-		this.setSender(address);
-		return (EchoRequest) this.getResponse();
-	}
+    /**
+     * @return True if it has nonempty closest map.
+     */
+    public boolean hasClosest() {
+        return this.closest != null && !this.closest.isEmpty();
+    }
 
-	public String getSummary() {
-		return EchoRequest.this.serviceName + ":" + EchoRequest.this.requestID
-				+ ":" + EchoRequest.this.getSender();
-	}
+    /**
+     * @param address
+     * @return {@code this}.
+     */
+    public EchoRequest makeResponse(InetSocketAddress address) {
+        this.setSender(address);
+        return (EchoRequest) this.getResponse();
+    }
 
-	/**
-	 * @return closest map.
-	 */
-	public Map<InetAddress, Long> getClosest() {
-		return this.closest;
-	}
+    public String getSummary() {
+        return EchoRequest.this.serviceName + ":" + EchoRequest.this.requestID
+                + ":" + EchoRequest.this.getSender();
+    }
+
+    /**
+     * @return closest map.
+     */
+    public Map<InetAddress, Long> getClosest() {
+        return this.closest;
+    }
 }

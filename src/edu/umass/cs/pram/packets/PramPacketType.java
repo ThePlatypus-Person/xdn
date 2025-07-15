@@ -37,7 +37,9 @@ public enum PramPacketType implements IntegerPacketType {
 
     private final int number;
 
-    PramPacketType(int number) {this.number = number;}
+    PramPacketType(int number) {
+        this.number = number;
+    }
 
     @Override
     public int getInt() {

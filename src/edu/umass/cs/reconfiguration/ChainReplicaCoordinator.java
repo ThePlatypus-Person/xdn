@@ -54,16 +54,16 @@ public class ChainReplicaCoordinator<NodeIDType>
 
     @Override
     public Set<IntegerPacketType> getRequestTypes() {
-        if(requestTypes!=null) return requestTypes;
+        if (requestTypes != null) return requestTypes;
         // FIXME: get request types from a proper app
         Set<IntegerPacketType> types = this.app.getRequestTypes();
 
-        if (types==null) types= new HashSet<IntegerPacketType>();
+        if (types == null) types = new HashSet<IntegerPacketType>();
         /* Need to add this separately because paxos won't initClientMessenger
          * automatically with ReconfigurableNode unlike PaxosServer.
          */
 
-        for (IntegerPacketType type: ChainPacket.ChainPacketType.values())
+        for (IntegerPacketType type : ChainPacket.ChainPacketType.values())
             types.add(type);
 
         types.add(ReconfigurationPacket.PacketType.REPLICABLE_CLIENT_REQUEST);
@@ -75,7 +75,7 @@ public class ChainReplicaCoordinator<NodeIDType>
         // coordinate the request by forwarding to the next node in the chain
         // System.out.println(">>>>> Coordinate: "+request);
         // return true;
-        return this.chainManager.propose(request.getServiceName(), request, callback)!= null;
+        return this.chainManager.propose(request.getServiceName(), request, callback) != null;
     }
 
     @Override
@@ -107,7 +107,7 @@ public class ChainReplicaCoordinator<NodeIDType>
         return null;
     }
 
-    public static void main(String[] args){
+    public static void main(String[] args) {
         String coordinatorClassName = "edu.umass.cs.reconfiguration.PaxosReplicaCoordinator";
         Class<?> c;
         ReplicaCoordinator<?> coordinator = null;
@@ -115,14 +115,15 @@ public class ChainReplicaCoordinator<NodeIDType>
             c = Class.forName(coordinatorClassName);
             // System.out.println(c.getConstructors());
             Constructor<?>[] cons = c.getConstructors();
-            for (int i=0; i<cons.length; i++){
+            for (int i = 0; i < cons.length; i++) {
                 System.out.println(cons[i]);
             }
             ;
             coordinator = (ReplicaCoordinator<?>) c.getDeclaredConstructor(
-                    Replicable.class, Object.class, Stringifiable.class, JSONMessenger.class)
+                            Replicable.class, Object.class, Stringifiable.class, JSONMessenger.class)
                     .newInstance(null, new Object(), null, null);
-        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
+                 InvocationTargetException e) {
             e.printStackTrace();
         }
 

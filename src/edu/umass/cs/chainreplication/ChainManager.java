@@ -59,12 +59,12 @@ import java.util.logging.Logger;
  * @author Z Gao
  *
  * <p>
- *     ChainManager is the primary class to manage and use chain replication.
- *
- *     ChainManager manages all chains at a node. There is supposed to be one
- *     chain manager per machine.
- *
- *     ChainManager does not support hot swap as described in GigaPaxos paper.
+ * ChainManager is the primary class to manage and use chain replication.
+ * <p>
+ * ChainManager manages all chains at a node. There is supposed to be one
+ * chain manager per machine.
+ * <p>
+ * ChainManager does not support hot swap as described in GigaPaxos paper.
  *
  * </p>
  */
@@ -98,13 +98,13 @@ public class ChainManager<NodeIDType> {
     private static final Logger log = Logger.getLogger(ReconfigurationConfig.class
             .getName());
 
-    private synchronized boolean isClosed(){
+    private synchronized boolean isClosed() {
         return closed;
     }
 
     public ChainManager(NodeIDType id, Stringifiable<NodeIDType> unstringer,
                         InterfaceNIOTransport<NodeIDType, JSONObject> niot, Replicable ci,
-                        String logFolder, boolean enableNullCheckpoints){
+                        String logFolder, boolean enableNullCheckpoints) {
 
         this.myID = this.integerMap.put(id);
         this.unstringer = unstringer;
@@ -126,7 +126,7 @@ public class ChainManager<NodeIDType> {
         this.logger = null;
 
         this.nullCheckpointsEnabled = enableNullCheckpoints;
-        
+
         this.outstanding = new ChainOutstading();
 
         niot.precedePacketDemultiplexer(new ChainDemultiplexer(this));
@@ -149,7 +149,7 @@ public class ChainManager<NodeIDType> {
     public int getVersion(String chainID) {
 
         ReplicatedChainStateMachine crsm = this.getInstance(chainID);
-        if ( crsm != null)
+        if (crsm != null)
             return (int) crsm.getVersion();
 
         // FIXME: get from logger
@@ -162,10 +162,11 @@ public class ChainManager<NodeIDType> {
      * handleChainPacket method abandoned the design in {@link PaxosManager} handlePaxosPacket,
      * which creates MessageTasks to process the current Request packet.
      * We
+     *
      * @param cp
      * @param rcsm
      */
-    private void handleChainPacket(ChainPacket cp, ReplicatedChainStateMachine rcsm){
+    private void handleChainPacket(ChainPacket cp, ReplicatedChainStateMachine rcsm) {
         // no need to check whether this manager is closed as it has already been checked
 
         ChainPacket.ChainPacketType packetType = cp != null ? cp.getType()
@@ -177,9 +178,9 @@ public class ChainManager<NodeIDType> {
                         this.myID,
                         this.integerMap.get(this.myID),
                         (ChainRequestPacket) cp
-        });
+                });
 
-        switch(packetType) {
+        switch (packetType) {
             case REQUEST:
                 // node -> head
                 handleChainRequest(cp, rcsm);
@@ -214,8 +215,8 @@ public class ChainManager<NodeIDType> {
      * Otherwise, forward the request to the head node.
      */
     private void handleChainRequest(
-            ChainPacket cp, ReplicatedChainStateMachine rcsm){
-        if ( ((ChainRequestPacket) cp).getEntryReplica() == IntegerMap.NULL_INT_NODE )
+            ChainPacket cp, ReplicatedChainStateMachine rcsm) {
+        if (((ChainRequestPacket) cp).getEntryReplica() == IntegerMap.NULL_INT_NODE)
             ((ChainRequestPacket) cp).setEntryReplica(this.myID);
 
         log.log(level, "ChainManager.handleChainRequest handles " +
@@ -240,7 +241,7 @@ public class ChainManager<NodeIDType> {
             ChainPacket cp, ReplicatedChainStateMachine rcsm) {
 
         log.log(level, "ChainManager.handleForward handles " +
-                "ChainPacket {0} for state machine {1}",
+                        "ChainPacket {0} for state machine {1}",
                 new Object[]{cp, rcsm});
 
         // TODO: log decision
@@ -248,14 +249,14 @@ public class ChainManager<NodeIDType> {
         //logger.log(pp);
 
         // Execute request before forward or ack
-        Request request = getInterfaceRequest(this.myApp, ((ChainRequestPacket) cp).requestValue );
+        Request request = getInterfaceRequest(this.myApp, ((ChainRequestPacket) cp).requestValue);
 
         // System.out.println("About to execute request:" + request);
         this.myApp.execute(request, false);
 
-        if(rcsm.getChainTail() == this.myID){
+        if (rcsm.getChainTail() == this.myID) {
             // this is the tail, send back ACK to the head
-            ((ChainRequestPacket ) cp).setPacketType(ChainPacket.ChainPacketType.ACK);
+            ((ChainRequestPacket) cp).setPacketType(ChainPacket.ChainPacketType.ACK);
             this.sendRequest(cp, rcsm.getChainHead());
         } else {
             this.sendRequest(cp, rcsm.getNext());
@@ -266,9 +267,9 @@ public class ChainManager<NodeIDType> {
     private void handleAckRequest(ChainPacket cp,
                                   ReplicatedChainStateMachine rcsm) {
 
-        ((ChainRequestPacket ) cp).setPacketType(ChainPacket.ChainPacketType.RESPONSE);
+        ((ChainRequestPacket) cp).setPacketType(ChainPacket.ChainPacketType.RESPONSE);
 
-        if(rcsm.getChainHead() == this.myID){
+        if (rcsm.getChainHead() == this.myID) {
             // this is the head, ACK received
             log.log(level, "ChainManager.handleAck received an ACK request {0}," +
                             " for state machine {1}",
@@ -276,7 +277,7 @@ public class ChainManager<NodeIDType> {
 
             ChainRequestPacket crp = (ChainRequestPacket) cp;
 
-            if (crp.getEntryReplica() == this.myID){
+            if (crp.getEntryReplica() == this.myID) {
                 // the head is the entry node, send back response to client here
                 // System.out.println("Head is entry, to respond!");
                 this.handleResponse(cp, rcsm);
@@ -290,7 +291,7 @@ public class ChainManager<NodeIDType> {
         } else {
             // this node is not supposed to receive this request
             log.log(level, "ChainManager.handleAck received an ACK request {0}" +
-                    " for state machine {1}",
+                            " for state machine {1}",
                     new Object[]{cp, rcsm});
             this.handleResponse(cp, rcsm);
         }
@@ -298,7 +299,7 @@ public class ChainManager<NodeIDType> {
     }
 
     private void handleResponse(ChainPacket cp,
-                                ReplicatedChainStateMachine rcsm){
+                                ReplicatedChainStateMachine rcsm) {
 
         // About to send response back to client
         long requestID = ((ChainRequestPacket) cp).requestID;
@@ -324,7 +325,7 @@ public class ChainManager<NodeIDType> {
         } else {
             // can't find the request being queued in outstanding
             log.log(Level.WARNING, "ChainManager.handleResponse received " +
-                    "an ACK request {0} for RSM {1} that does not match any enqueued request.",
+                            "an ACK request {0} for RSM {1} that does not match any enqueued request.",
                     new Object[]{cp, rcsm});
         }
     }
@@ -336,16 +337,16 @@ public class ChainManager<NodeIDType> {
      * @param rcsm
      */
     private void handleRead(ChainPacket cp,
-                            ReplicatedChainStateMachine rcsm){
+                            ReplicatedChainStateMachine rcsm) {
 
         ChainRequestPacket crp = (ChainRequestPacket) cp;
 
-        if ( crp.getEntryReplica() == IntegerMap.NULL_INT_NODE ) {
+        if (crp.getEntryReplica() == IntegerMap.NULL_INT_NODE) {
             crp.setEntryReplica(this.myID);
             crp.setPacketType(ChainPacket.ChainPacketType.READ);
         }
 
-        if(rcsm.getChainTail() == this.myID && crp.getEntryReplica() == this.myID){
+        if (rcsm.getChainTail() == this.myID && crp.getEntryReplica() == this.myID) {
             // About to send back request to the client
             ChainRequestAndCallback requestAndCallback =
                     outstanding.dequeue(crp);
@@ -356,7 +357,7 @@ public class ChainManager<NodeIDType> {
 
                 // execute "READ" request on the tail
                 this.myApp.execute(request, false);
-                
+
                 // Send response back to client
                 requestAndCallback.callback.executed(request
                         , true);
@@ -408,17 +409,18 @@ public class ChainManager<NodeIDType> {
         return Util.selectRandomGeneric(reconfigurators);
     }
 
-    private Set<NodeIDType> getReconfigurators(){
+    private Set<NodeIDType> getReconfigurators() {
         return ((DefaultNodeConfig<NodeIDType>) this.unstringer).getReconfigurators();
     }
-    
+
     /**
      * Used to send ChainRequest to
+     *
      * @param cp
      * @param nodeID
      */
     private void sendRequest(ChainPacket cp, int nodeID) {
-        GenericMessagingTask<NodeIDType,ChainPacket> gTask = null;
+        GenericMessagingTask<NodeIDType, ChainPacket> gTask = null;
         try {
             // forward to nodeID
             gTask = new GenericMessagingTask<>(this.integerMap.get(nodeID), cp);
@@ -430,16 +432,16 @@ public class ChainManager<NodeIDType> {
 
 
     public String propose(String chainID, Request request,
-                           ExecutedCallback callback) {
+                          ExecutedCallback callback) {
 
         ChainRequestPacket chainRequestPacket = this.getChainRequestPacket(request, false);
 
         log.log(level, "ChainManager.propsoe request " +
-                "{0} for service name {1}",
+                        "{0} for service name {1}",
                 new Object[]{chainRequestPacket, chainID});
 
         // 1 Check whether ChainManager is closed, if yes, return null
-        if(this.isClosed())
+        if (this.isClosed())
             return null;
 
         boolean matched = false;
@@ -462,8 +464,8 @@ public class ChainManager<NodeIDType> {
             this.handleChainPacket(chainRequestPacket, rcsm);
         } else {
             log.log(Level.INFO, "{0} could not find paxos instance {1} for " +
-                    "request {2} with body {3}; last known version was [{4}]",
-                    new Object[] {
+                            "request {2} with body {3}; last known version was [{4}]",
+                    new Object[]{
                             this,
                             chainID,
                             chainRequestPacket.getSummary(),
@@ -479,16 +481,16 @@ public class ChainManager<NodeIDType> {
 
     public boolean createReplicatedChainForcibly(String chainID, int version,
                                                  Set<NodeIDType> nodes, Replicable app,
-                                                 String state){
+                                                 String state) {
         // long timeout = Config.getGlobalInt(PaxosConfig.PC.CAN_CREATE_TIMEOUT);
         return this.createReplicatedChainFinal(chainID, version, nodes, app, state) != null;
     }
 
-    public boolean deleteReplicatedChain(String chainID, int epoch){
+    public boolean deleteReplicatedChain(String chainID, int epoch) {
         ReplicatedChainStateMachine rcsm = this.getInstance(chainID);
-        if(rcsm == null)
+        if (rcsm == null)
             return true;
-        if(rcsm.getVersion() > epoch) {
+        if (rcsm.getVersion() > epoch) {
             // exist a higher version, can't delete the state machine
             return false;
         }
@@ -520,7 +522,7 @@ public class ChainManager<NodeIDType> {
                     initialState, this);
             log.log(level, "Create replicated chain state machine for " +
                             "chainID {0}: {1} on {2}:{3}",
-                    new Object[] {chainID, rcsm, myID, this.integerMap.get(myID)});
+                    new Object[]{chainID, rcsm, myID, this.integerMap.get(myID)});
         } catch (Exception e) {
             e.printStackTrace();
             throw new ReplicatedChainException(e.getMessage());
@@ -532,22 +534,22 @@ public class ChainManager<NodeIDType> {
         return rcsm;
     }
 
-    private ChainRequestPacket getChainRequestPacket(Request request, boolean stop){
+    private ChainRequestPacket getChainRequestPacket(Request request, boolean stop) {
 
         if (request instanceof ChainRequestPacket
-                && request.getRequestType().getInt() == ChainPacket.ChainPacketType.CHAIN_PACKET.getInt()){
+                && request.getRequestType().getInt() == ChainPacket.ChainPacketType.CHAIN_PACKET.getInt()) {
             return (stop == ((ChainRequestPacket) request).stop) ? (ChainRequestPacket) request :
                     new ChainRequestPacket(((ChainRequestPacket) request).requestID,
                             ((ChainRequestPacket) request).requestValue, stop,
                             (ChainRequestPacket) request);
-        } else if (request instanceof ClientRequest){
+        } else if (request instanceof ClientRequest) {
             return new ChainRequestPacket(
                     ((ClientRequest) request).getRequestID(),
                     ((ClientRequest) request).toString(), stop,
                     ((ClientRequest) request).getClientAddress()
             );
         }
-        return new ChainRequestPacket(this.outstanding.generateUnusedID(),request.toString(), stop);
+        return new ChainRequestPacket(this.outstanding.generateUnusedID(), request.toString(), stop);
     }
 
 
@@ -559,7 +561,7 @@ public class ChainManager<NodeIDType> {
         return replicatedChains.get(chainID);
     }
 
-    private void putInstance(String chainID, ReplicatedChainStateMachine rcsm){
+    private void putInstance(String chainID, ReplicatedChainStateMachine rcsm) {
         this.replicatedChains.put(chainID, rcsm);
     }
 
@@ -579,14 +581,14 @@ public class ChainManager<NodeIDType> {
         protected ChainRequestPacket chainRequestPacket;
         final ExecutedCallback callback;
 
-        ChainRequestAndCallback(ChainRequestPacket chainRequestPacket, ExecutedCallback callback){
+        ChainRequestAndCallback(ChainRequestPacket chainRequestPacket, ExecutedCallback callback) {
             this.chainRequestPacket = chainRequestPacket;
             this.callback = callback;
         }
 
         @Override
-        public String toString(){
-            return this.chainRequestPacket +" ["+ callback+"]";
+        public String toString() {
+            return this.chainRequestPacket + " [" + callback + "]";
         }
     }
 
@@ -604,12 +606,12 @@ public class ChainManager<NodeIDType> {
             synchronized (this.requests) {
                 prev = this.requests.putIfAbsent(
                         requestAndCallback.chainRequestPacket.getRequestID(), requestAndCallback);
-                if (prev != null){
+                if (prev != null) {
                     // same request ID exists in outstanding already
                     log.log(Level.FINE,
                             "ChainManager: the same request ID {0} " +
                                     "already exists in outstanding for request: {1}",
-                            new Object[] {requestAndCallback.chainRequestPacket.getRequestID(), requestAndCallback.chainRequestPacket} );
+                            new Object[]{requestAndCallback.chainRequestPacket.getRequestID(), requestAndCallback.chainRequestPacket});
                 }
             }
         }
@@ -633,20 +635,19 @@ public class ChainManager<NodeIDType> {
      * ChainPacket demultiplexier, the order can be found in AbstractPacketDemultiplexer
      * processHeader: convert a byte[] to ChainPacket
      * getPacketType: get packet type of a ChainPacket
-     *
      */
     class ChainDemultiplexer extends AbstractPacketDemultiplexer<Object> {
 
         final ChainManager manager;
 
         public ChainDemultiplexer(int numThreads,
-                                  ChainManager manager){
+                                  ChainManager manager) {
             super(numThreads);
             this.register(ChainPacket.ChainPacketType.CHAIN_PACKET);
             this.manager = manager;
         }
 
-        public ChainDemultiplexer(ChainManager manager){
+        public ChainDemultiplexer(ChainManager manager) {
             this(Config.getGlobalInt(PaxosConfig.PC.PACKET_DEMULTIPLEXER_THREADS), manager);
         }
 
@@ -665,7 +666,7 @@ public class ChainManager<NodeIDType> {
         @Override
         protected Object processHeader(byte[] bytes, NIOHeader header) {
 
-            if(!JSONPacket.couldBeJSON(bytes)) return bytes;
+            if (!JSONPacket.couldBeJSON(bytes)) return bytes;
 
             ByteBuffer bbuf = ByteBuffer.wrap(bytes);
             ChainRequestPacket packet = null;
@@ -702,14 +703,14 @@ public class ChainManager<NodeIDType> {
                     " with NIOHeader {1}", new Object[]{message.toString(), header});
 
             assert (message != null);
-            if (message instanceof net.minidev.json.JSONObject){
+            if (message instanceof net.minidev.json.JSONObject) {
                 // TODO:
                 // ChainPacket cp = null;
                 // ChainManager.this.handleChainPacket(cp, ChainManager.this.getInstance());
                 return true;
             }
 
-            if(message instanceof byte[]){
+            if (message instanceof byte[]) {
                 ByteBuffer bbuf = ByteBuffer.wrap((byte[]) message);
                 ChainRequestPacket packet = null;
                 try {

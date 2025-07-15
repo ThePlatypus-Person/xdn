@@ -111,13 +111,13 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
-		// prepare the updated callback that log the coordination duration
-		long startProcessingTime = System.nanoTime();
+        // prepare the updated callback that log the coordination duration
+        long startProcessingTime = System.nanoTime();
         ExecutedCallback chainedCallback = callback;
 
         System.out.printf("%s:PBRC.coordinateRequest(service=%s)\n",
-            getMyID(), 
-            request.getServiceName()
+                getMyID(),
+                request.getServiceName()
         );
 
         // if packet comes from client (i.e., ReplicableClientRequest), wrap the
@@ -139,10 +139,10 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
                     // Log Time
                     long elapsedTime = System.nanoTime() - startProcessingTime;
                     String timeLog = String.format(
-                        "%s:%50s %6.3fs", 
-                        getMyID(),
-                        "PBRC.coordinateRequest()",
-                        elapsedTime / 1000_000_000.0
+                            "%s:%50s %6.3fs",
+                            getMyID(),
+                            "PBRC.coordinateRequest()",
+                            elapsedTime / 1000_000_000.0
                     );
                     System.out.println(timeLog);
                 };

@@ -26,7 +26,7 @@ public class UtilServer {
      * @throws IOException
      */
     public static void writeProperty(String key, String value, String filename,
-            String prefix) throws IOException {
+                                     String prefix) throws IOException {
         String props = readFileAsString(filename);
         String modified = "";
         String comment = "\n# automatically modified property\n";
@@ -34,10 +34,10 @@ public class UtilServer {
         if (prefix == null
                 || prefix.equals("")
                 || !Pattern
-                        .compile(".*\n[\\s]*" + prefix + "[^\n]*=[^\n]*\n.*",
-                                Pattern.DOTALL).matcher(props).matches())
+                .compile(".*\n[\\s]*" + prefix + "[^\n]*=[^\n]*\n.*",
+                        Pattern.DOTALL).matcher(props).matches())
             modified = props + comment + key + "=" + value;
-        // replace if property exists
+            // replace if property exists
         else if (Pattern
                 .compile(".*\n[\\s]*" + key + "[^\n]*=[^\n]*\n.*",
                         Pattern.DOTALL).matcher(props).matches()) {
@@ -60,8 +60,8 @@ public class UtilServer {
                 modified = tokens[i]
                         + "\n"
                         + (tokens[i].trim().startsWith(prefix)
-                                && (!oneTime && (oneTime = true)) ? comment
-                                + key + "=" + value + "\n" : "") + modified;
+                        && (!oneTime && (oneTime = true)) ? comment
+                        + key + "=" + value + "\n" : "") + modified;
         }
         Files.write(Paths.get(filename), modified.getBytes());
     }

@@ -10,11 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * a primary can capture stat. As with the execute() method, captureStatediff() and applyStatediff()
  * should be done atomically. The captureStatediff() method must be called after execute(.),
  * otherwise the captureStatediff(.) must return a null String.
- *
+ * <p>
  * TODO: design activate(.) and deactivate(.) methods.
- *
  */
 public interface BackupableApplication {
     String captureStatediff(String serviceName);
+
     boolean applyStatediff(String serviceName, String statediff);
 }

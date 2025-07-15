@@ -1,17 +1,17 @@
 /* Copyright (c) 2015 University of Massachusetts
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * Initial developer(s): V. Arun */
 package edu.umass.cs.reconfiguration.interfaces;
 
@@ -23,44 +23,45 @@ import java.util.Set;
 import edu.umass.cs.nio.interfaces.NodeConfig;
 
 /**
- * @author V. Arun
  * @param <NodeIDType>
+ * @author V. Arun
  */
 public interface ReconfigurableNodeConfig<NodeIDType> extends
-		NodeConfig<NodeIDType> {
-	/**
-	 * @return Set of all active replicas.
-	 */
-	public Set<NodeIDType> getActiveReplicas();
+        NodeConfig<NodeIDType> {
+    /**
+     * @return Set of all active replicas.
+     */
+    public Set<NodeIDType> getActiveReplicas();
 
-	/**
-	 * @return Set of all reconfigurators.
-	 */
-	public Set<NodeIDType> getReconfigurators();
+    /**
+     * @return Set of all reconfigurators.
+     */
+    public Set<NodeIDType> getReconfigurators();
 
-	/**
-	 * @return Read-only version of active replicas.
-	 */
-	default Map<NodeIDType, InetSocketAddress> getActiveReplicasReadOnly() {
-		Map<NodeIDType, InetSocketAddress> map = new HashMap<NodeIDType, InetSocketAddress>();
-		for (NodeIDType node : getActiveReplicas()) {
-			map.put(node,
-					new InetSocketAddress(this.getNodeAddress(node), this
-							.getNodePort(node)));
-		}
-		return map;
-	}
-	/**
-	 * @return Read-only version of reconfigurators.
-	 */
-	default Map<NodeIDType, InetSocketAddress> getReconfiguratorsReadOnly() {
-		Map<NodeIDType, InetSocketAddress> map = new HashMap<NodeIDType, InetSocketAddress>();
-		for (NodeIDType node : getReconfigurators()) {
-			map.put(node,
-					new InetSocketAddress(this.getNodeAddress(node), this
-							.getNodePort(node)));
-		}
-		return map;
-	}
+    /**
+     * @return Read-only version of active replicas.
+     */
+    default Map<NodeIDType, InetSocketAddress> getActiveReplicasReadOnly() {
+        Map<NodeIDType, InetSocketAddress> map = new HashMap<NodeIDType, InetSocketAddress>();
+        for (NodeIDType node : getActiveReplicas()) {
+            map.put(node,
+                    new InetSocketAddress(this.getNodeAddress(node), this
+                            .getNodePort(node)));
+        }
+        return map;
+    }
+
+    /**
+     * @return Read-only version of reconfigurators.
+     */
+    default Map<NodeIDType, InetSocketAddress> getReconfiguratorsReadOnly() {
+        Map<NodeIDType, InetSocketAddress> map = new HashMap<NodeIDType, InetSocketAddress>();
+        for (NodeIDType node : getReconfigurators()) {
+            map.put(node,
+                    new InetSocketAddress(this.getNodeAddress(node), this
+                            .getNodePort(node)));
+        }
+        return map;
+    }
 
 }

@@ -60,9 +60,9 @@ public class GetReplicaPlacementRequest extends ClientReconfigurationPacket {
         for (int i = 0; i < replicaNodeIds.size(); i++) {
             JSONObject nodeInfo = new JSONObject();
             nodeInfo.put("ID", replicaNodeIds.get(i));
-            nodeInfo.put("ADDRESS", replicaAddresses.size() >= i+1 ? replicaAddresses.get(i) : "");
-            nodeInfo.put("ROLE", replicaRoles.size() >= i+1 ? replicaRoles.get(i) : "");
-            nodeInfo.put("METADATA", replicaMetadata.size() >= i+1 ? replicaMetadata.get(i) : "");
+            nodeInfo.put("ADDRESS", replicaAddresses.size() >= i + 1 ? replicaAddresses.get(i) : "");
+            nodeInfo.put("ROLE", replicaRoles.size() >= i + 1 ? replicaRoles.get(i) : "");
+            nodeInfo.put("METADATA", replicaMetadata.size() >= i + 1 ? replicaMetadata.get(i) : "");
             nodeArray.put(i, nodeInfo);
         }
         dataJsonObject.put("NODES", nodeArray);

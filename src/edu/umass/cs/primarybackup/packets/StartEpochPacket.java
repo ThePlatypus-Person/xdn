@@ -67,7 +67,7 @@ public class StartEpochPacket extends PrimaryBackupPacket implements Byteable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         StartEpochPacket that = (StartEpochPacket) o;
-        return  this.packetId == that.packetId &&
+        return this.packetId == that.packetId &&
                 Objects.equals(serviceName, that.serviceName) &&
                 Objects.equals(startingEpoch.counter, that.startingEpoch.counter) &&
                 Objects.equals(startingEpoch.nodeID, that.startingEpoch.nodeID);
@@ -128,7 +128,7 @@ public class StartEpochPacket extends PrimaryBackupPacket implements Byteable {
         }
 
         return new StartEpochPacket(
-                decodedProto.getPacketId(), 
+                decodedProto.getPacketId(),
                 decodedProto.getServiceName(),
                 new PrimaryEpoch<>(
                         decodedProto.getPrimaryNodeId(),

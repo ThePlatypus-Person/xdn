@@ -417,7 +417,7 @@ public class MonotonicWritesHandler {
             }
 
             // Case-2: we can execute the ops from our peers, we update our timestamp
-            if (respStartingSeqNum <= ourLatestSeqNum + 1 ) {
+            if (respStartingSeqNum <= ourLatestSeqNum + 1) {
                 List<byte[]> writeOps = syncResponse.getEncodedRequests();
                 long lastSeqNum = respStartingSeqNum + writeOps.size() - 1;
                 for (long currSeqNum = respStartingSeqNum; currSeqNum <= lastSeqNum; ++currSeqNum) {

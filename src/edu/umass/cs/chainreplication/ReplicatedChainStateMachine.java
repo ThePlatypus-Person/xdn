@@ -10,17 +10,17 @@ import java.util.Set;
  * This class keeps the state of a replicated chain used by
  * chain replication algorithm. The information kept by
  * this class is as follows:
- *  (1) members of the chain (from head to tail, tail is the primary)
- *  (2) id of the chain
- *  (3) current version of the chain
- *  (4) a pointer to the ChainManager of this node
- *
+ * (1) members of the chain (from head to tail, tail is the primary)
+ * (2) id of the chain
+ * (3) current version of the chain
+ * (4) a pointer to the ChainManager of this node
+ * <p>
  * A typical process to coordinate a request is as this:
  * A write request is first sent to the head,
  * which then passes the update along the chain to the tail (primary).
  * All read requests are sent to the tail (primary).
- *
- *
+ * <p>
+ * <p>
  * TODO: reconfiguration, fault-tolerance
  *
  * @author Z Gao
@@ -38,7 +38,7 @@ public class ReplicatedChainStateMachine {
 
     public ReplicatedChainStateMachine(String chainID, int version, int id,
                                        Set<Integer> chainMembers, Replicable app, String initialState,
-                                       ChainManager<?> cm){
+                                       ChainManager<?> cm) {
         Arrays.sort(this.chainMembers = Util.setToIntArray(chainMembers));
         this.chainID = chainID;
         this.version = version;
@@ -47,13 +47,13 @@ public class ReplicatedChainStateMachine {
         boolean found = false;
 
         // there must be at least one node in the chain
-        assert(this.chainMembers.length > 0);
+        assert (this.chainMembers.length > 0);
 
         this.head = this.chainMembers[0];
-        this.tail = this.chainMembers[this.chainMembers.length-1];
+        this.tail = this.chainMembers[this.chainMembers.length - 1];
 
         int idx = 0;
-        while (idx<this.chainMembers.length){
+        while (idx < this.chainMembers.length) {
             if (this.chainMembers[idx] == id) {
                 found = true;
                 break;
@@ -61,7 +61,7 @@ public class ReplicatedChainStateMachine {
             ++idx;
         }
 
-        if (found && idx < this.chainMembers.length-1)
+        if (found && idx < this.chainMembers.length - 1)
             this.next = this.chainMembers[idx + 1];
         else {
             // unfound, no next, I'm the tail
@@ -91,8 +91,8 @@ public class ReplicatedChainStateMachine {
                 (byte[]) chainID));
     }
 
-    protected String getChainIDVersion(){
-        return this.chainID + ","+this.version;
+    protected String getChainIDVersion() {
+        return this.chainID + "," + this.version;
     }
 
     protected Integer getChainHead() {
@@ -114,19 +114,19 @@ public class ReplicatedChainStateMachine {
 //    }
 
     @Override
-    public String toString(){
+    public String toString() {
         StringBuilder members = new StringBuilder("[");
         for (int chainMember : this.chainMembers) {
             members.append(chainMember).append(",");
         }
         members.append("]");
 
-        return "("+this.chainID+","+this.version+","+members.toString()+",next:"
-                +this.next+",chain="+this.head+"-->"+this.tail+")";
+        return "(" + this.chainID + "," + this.version + "," + members.toString() + ",next:"
+                + this.next + ",chain=" + this.head + "-->" + this.tail + ")";
     }
 
 
-    private boolean restore(String state){
+    private boolean restore(String state) {
         return this.chainManager.getApp().restore(getChainID(), state);
     }
 

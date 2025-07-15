@@ -40,6 +40,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * XdnReplicaCoordinator is a wrapper of multiple replica coordinators supported by XDN.
@@ -166,6 +167,7 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
+        System.out.printf("%s:XRC:coordinateRequest()\n", this.myNodeID);
         long startProcessingTime = System.nanoTime();
 
         // gets service name and its coordinator

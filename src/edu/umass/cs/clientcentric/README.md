@@ -1,17 +1,20 @@
 # Client Centric Coordination Protocols
 
 Assumption:
+
 - The applications are okay with partial order.
 
 Sources:
+
 - Session Guarantees for Weakly Consistent Replicated Data
 - Distributed Systems Textbook, Ch. 7 - Consistency and Replication.
 
 System model:
+
 - TODO
 
-
 ## Protocol for Monotonic Reads
+
 **Informal Definition**:
 Successive reads reflect a non-decreasing set of writes (i.e., reads cannot go backward).
 
@@ -20,6 +23,7 @@ If a client reads the value of a data item `x`, any successive read operation on
 will always return that same value or a more recent value.
 
 Event-action protocol:
+
 ```
 When receiving a WriteOnlyRequest W from client:
    increase our component in the current timestamp
@@ -61,6 +65,7 @@ When receiving a WriteAfterPacket Z from Server S:
 ```
 
 ## Protocol for Monotonic Writes
+
 **Informal Definition**:
 Writes are propagated after writes that logically precede them.
 
@@ -69,17 +74,19 @@ A write operation by a client on a data item `x` is completed before any success
 on `x` by the same client.
 
 Event-action protocol:
+
 ```
 Sync before executing write locally
 Write return the latest timestamp
 ```
 
 ## Protocol for Read Your Writes
+
 **Informal Definition**:
 Read operations reflect previous writes.
 
 **Definition**:
-The effect of a write operation by a client on data item `x` will always be seen by a successive 
+The effect of a write operation by a client on data item `x` will always be seen by a successive
 read operation on `x` by the same client.
 
 ```
@@ -88,11 +95,12 @@ Write return the latest timestamp
 ```
 
 ## Protocol for Writes Follow Reads
+
 **Informal Definition**:
 Writes are propagated after reads on which they depend.
 
 **Definition**:
-A write operation by a process on a data item `x` following a previous read operation `x` by 
+A write operation by a process on a data item `x` following a previous read operation `x` by
 the same client is guaranteed to take place on the same or a more recent value of `x` that was read.
 
 ```

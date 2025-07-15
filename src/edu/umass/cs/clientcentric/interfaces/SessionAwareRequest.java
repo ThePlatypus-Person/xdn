@@ -5,5 +5,6 @@ package edu.umass.cs.clientcentric.interfaces;
 //  (or idempotency-key)
 public interface SessionAwareRequest {
     String getSessionID();
+
     void setSessionID(String sessionID);
 }

@@ -433,6 +433,7 @@ public class HttpReconfigurator {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
+            System.out.printf("HR:channelRead0() - receives message\n");
             if (msg instanceof HttpRequest) {
                 HttpRequest request = this.request = (HttpRequest) msg;
                 buf.setLength(0);
@@ -453,6 +454,7 @@ public class HttpReconfigurator {
                     crp = toReconfiguratorRequest(json, ctx.channel());
 
                     if (rcFunctions != null) {
+                        System.out.printf("HR:channelRead0() - sendRequest(crp)\n");
                         crp = (ReconfiguratorRequest) this.rcFunctions
                                 .sendRequest(crp);
                     }

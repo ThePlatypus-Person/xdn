@@ -76,21 +76,21 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         // e.g., /tmp/xdn/state/rsync/node1/mnt/service1/e0/
         String targetDirPath = this.getTargetDirectory(serviceName, placementEpoch);
 
-	File targetDir = new File(targetDirPath);
+        File targetDir = new File(targetDirPath);
 
-	//String removeDirCommand = String.format("rm -rf %s", targetDirPath);
-	//int code = Shell.runCommand(removeDirCommand);
-	//assert code == 0;
-	
-	if (!targetDir.exists()) {
-	    System.out.printf("Rsync.preInitialization() - Directory %s doesn't exist. Creating...\n", targetDirPath);
+        //String removeDirCommand = String.format("rm -rf %s", targetDirPath);
+        //int code = Shell.runCommand(removeDirCommand);
+        //assert code == 0;
 
-	    String createDirCommand = String.format("mkdir -p %s", targetDirPath);
-	    int code = Shell.runCommand(createDirCommand);
-	    assert code == 0;
-	} else {
-	    System.out.printf("Rsync.preInitialization() - Directory %s exist.\n", targetDirPath);
-	}
+        if (!targetDir.exists()) {
+            System.out.printf("Rsync.preInitialization() - Directory %s doesn't exist. Creating...\n", targetDirPath);
+
+            String createDirCommand = String.format("mkdir -p %s", targetDirPath);
+            int code = Shell.runCommand(createDirCommand);
+            assert code == 0;
+        } else {
+            System.out.printf("Rsync.preInitialization() - Directory %s exist.\n", targetDirPath);
+        }
 
         // remove and then re-create snapshot dir
         // e.g., /tmp/xdn/state/rsync/node1/snp/service1/e0/
@@ -136,7 +136,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                 String.format("cp -a %s %s", targetSourceDir, targetDestDir), false);
 
         System.out.printf("Rsync removeTargetDirRetCode=%d, removeDiffDirRetCode=%d, copySnapshotRetCode=%d\n",
-            removeTargetDirRetCode, removeDiffDirRetCode, copySnapshotRetCode
+                removeTargetDirRetCode, removeDiffDirRetCode, copySnapshotRetCode
         );
 
         assert removeTargetDirRetCode == 0 &&
@@ -186,8 +186,8 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         double mb = kb / 1024;
 
         System.out.printf(
-            "RsyncRecorder.captureStateDiff() - uncompressed stateDiff size = %d bytes, %.2fKB, %.2fMB \n", 
-            bytes, kb, mb
+                "RsyncRecorder.captureStateDiff() - uncompressed stateDiff size = %d bytes, %.2fKB, %.2fMB \n",
+                bytes, kb, mb
         );
 
         // compress stateDiff
@@ -283,9 +283,9 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
         Set<String> backupNodes = ipAddresses.keySet().stream()
-            .filter(node -> !node.equals(myNodeId.toString()))
-            .map(String::toLowerCase)
-            .collect(Collectors.toSet());
+                .filter(node -> !node.equals(myNodeId.toString()))
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
         System.out.printf("RsyncStateDiff backupNodes = %s\n", backupNodes);
         System.out.printf("RsyncStateDiff ipAddresses = %s\n", ipAddresses);
 
@@ -304,8 +304,8 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
         while (true) {
             int exitCode = Shell.runCommand(String.format(
-                "rsync -avz --delete --human-readable %s/%s %s/%s",
-                currentReplica, mntDir, currentReplica, snpDir
+                    "rsync -avz --delete --human-readable %s/%s %s/%s",
+                    currentReplica, mntDir, currentReplica, snpDir
             ), true);
 
             if (exitCode != 0) {
@@ -320,7 +320,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                 e.printStackTrace();
             }
         }
-           
+
         // Copy data to other replicas
         Boolean allSyncSuccess = false;
         int count = 0;
@@ -331,20 +331,20 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
             allSyncSuccess = true;
 
-            for (String key: backupReplicas.keySet()) {
+            for (String key : backupReplicas.keySet()) {
                 int exitCode = Shell.runCommand(String.format("""
-                    rsync -avz --delete --human-readable \
-                    --include='mnt/' --include='%s' --include='%s***' \
-                    --exclude='*' \
-                    %s %s@%s:%s""", 
-                    mntDir, mntDir, currentReplica, 
-                    username, ipAddresses.get(key).getHostAddress(),
-                    backupReplicas.get(key)
-                    ), true);
+                                rsync -avz --delete --human-readable \
+                                --include='mnt/' --include='%s' --include='%s***' \
+                                --exclude='*' \
+                                %s %s@%s:%s""",
+                        mntDir, mntDir, currentReplica,
+                        username, ipAddresses.get(key).getHostAddress(),
+                        backupReplicas.get(key)
+                ), true);
 
                 if (exitCode != 0) {
                     System.out.println(String.format(
-                        "Failed to sync %s to %s", currentReplica, backupReplicas.get(key)
+                            "Failed to sync %s to %s", currentReplica, backupReplicas.get(key)
                     ));
                     allSyncSuccess = false;
                 }

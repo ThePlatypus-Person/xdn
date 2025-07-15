@@ -12,7 +12,7 @@ import org.json.JSONObject;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class PramReadPacket extends PramPacket  {
+public class PramReadPacket extends PramPacket {
 
     private final long requestID;
     private final ClientRequest clientReadOnlyRequest;

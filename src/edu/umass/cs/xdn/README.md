@@ -1,5 +1,3 @@
-
-
 ## Architecture of Coordinator Wrapper in XDN
 
 ```

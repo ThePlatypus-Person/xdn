@@ -138,7 +138,7 @@ public class LazyReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinat
                 GenericMessagingTask<NodeIDType, LazyPacket> m =
                         new GenericMessagingTask<>(myPeers.toArray(), writeAfterPacket);
                 try {
-                    logger.log(Level.INFO,  "Sending WRITE_AFTER packet ...");
+                    logger.log(Level.INFO, "Sending WRITE_AFTER packet ...");
                     messenger.send(m);
                 } catch (JSONException e) {
                     throw new RuntimeException(e);

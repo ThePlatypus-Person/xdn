@@ -21,10 +21,10 @@ public abstract class ChainPacket extends JSONPacket {
     protected ChainPacketType packetType;
     protected int slot;
 
-    protected ChainPacket(ChainPacket pkt){
+    protected ChainPacket(ChainPacket pkt) {
         super(ChainPacket.ChainPacketType.CHAIN_PACKET);
 
-        if (pkt !=null){
+        if (pkt != null) {
             this.packetType = pkt.packetType;
             this.chainID = pkt.chainID;
             this.version = pkt.version;
@@ -32,7 +32,7 @@ public abstract class ChainPacket extends JSONPacket {
         }
     }
 
-    protected ChainPacket(ChainPacketType packetType, String chainID, int version, int slot){
+    protected ChainPacket(ChainPacketType packetType, String chainID, int version, int slot) {
         super(ChainPacket.ChainPacketType.CHAIN_PACKET);
         this.packetType = packetType;
         this.chainID = chainID;
@@ -57,7 +57,7 @@ public abstract class ChainPacket extends JSONPacket {
 
     protected final static String CHARSET = "ISO-8859-1";
 
-    protected static final int SIZEOF_CHAINPACKET_FIXED = Integer.BYTES*4 + 1;
+    protected static final int SIZEOF_CHAINPACKET_FIXED = Integer.BYTES * 4 + 1;
 
     protected ChainPacket(ByteBuffer bbuf) throws UnsupportedEncodingException {
         super(ChainPacketType.CHAIN_PACKET);
@@ -70,7 +70,7 @@ public abstract class ChainPacket extends JSONPacket {
         byte chainIDLength = bbuf.get();
         byte[] chainIDBytes = new byte[chainIDLength];
         bbuf.get(chainIDBytes);
-        this.chainID = chainIDBytes.length > 0?
+        this.chainID = chainIDBytes.length > 0 ?
                 new String(chainIDBytes, CHARSET) : null;
         int exactLength = SIZEOF_CHAINPACKET_FIXED + chainIDLength;
         assert (bbuf.position() == exactLength);
@@ -111,12 +111,11 @@ public abstract class ChainPacket extends JSONPacket {
     }
 
 
-
     /**
      * To avoid potential conflict with existing {@link PaxosPacket} PaxosPacketType,
      * ChainPacketType starts from 1000 to 1100
      */
-    public enum ChainPacketType implements IntegerPacketType{
+    public enum ChainPacketType implements IntegerPacketType {
 
         /**
          *
@@ -141,12 +140,11 @@ public abstract class ChainPacket extends JSONPacket {
         /**
          *
          */
-        CHAIN_PACKET("CHAIN_PACKET",1099),
+        CHAIN_PACKET("CHAIN_PACKET", 1099),
         /**
          *
          */
-        NO_TYPE("CHAIN_NO_TYPE", 1999);
-        ;
+        NO_TYPE("CHAIN_NO_TYPE", 1999);;
 
         private static HashMap<String, ChainPacketType> labels = new HashMap<String, ChainPacketType>();
         private static HashMap<Integer, ChainPacketType> numbers = new HashMap<Integer, ChainPacketType>();
@@ -161,13 +159,13 @@ public abstract class ChainPacket extends JSONPacket {
 
         /************** BEGIN static code block to ensure correct initialization ***************/
         static {
-            for (ChainPacketType type: ChainPacketType.values()) {
+            for (ChainPacketType type : ChainPacketType.values()) {
                 if (!ChainPacketType.labels.containsKey(type.label)
-                && !ChainPacketType.numbers.containsKey(type.number)) {
+                        && !ChainPacketType.numbers.containsKey(type.number)) {
                     ChainPacketType.labels.put(type.label, type);
                     ChainPacketType.numbers.put(type.number, type);
                 } else {
-                    assert(false): "Duplicate or inconsistent enum type for ChainPacketType";
+                    assert (false) : "Duplicate or inconsistent enum type for ChainPacketType";
                 }
             }
         }
@@ -190,11 +188,11 @@ public abstract class ChainPacket extends JSONPacket {
             return getLabel();
         }
 
-        public static ChainPacketType getChainPacketType(int type){
+        public static ChainPacketType getChainPacketType(int type) {
             return ChainPacketType.numbers.get(type);
         }
 
-        public static ChainPacketType getChainPacketType(String type){
+        public static ChainPacketType getChainPacketType(String type) {
             return ChainPacketType.labels.get(type);
         }
     }
@@ -214,8 +212,8 @@ public abstract class ChainPacket extends JSONPacket {
     public Object getSummary() {
         return new Object() {
             public String toString() {
-                return getChainID() + ":" + getVersion()+ ":" + getType();
-                        // + ":[" + getSummaryString() + "]";
+                return getChainID() + ":" + getVersion() + ":" + getType();
+                // + ":[" + getSummaryString() + "]";
             }
         };
     }

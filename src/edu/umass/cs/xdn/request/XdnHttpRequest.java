@@ -507,7 +507,7 @@ public class XdnHttpRequest extends XdnRequest implements ClientRequest,
             contentStringBuilder.append("<bytes>");
         }
         String contentString = contentStringBuilder.toString();
-        
+
         return String.format("id=%d %s %s:%s hdr=%s body=%s",
                 this.requestId,
                 this.httpRequest.method(),

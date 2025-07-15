@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * MonotonicApp is a simple application, with no sharding i.e, only single object/service name,
  * that records a sequence of monotonically increasing numbers. For example, the app records these
  * numbers below:
- *  [1, 3, 10, 99, 1001, 3011]
+ * [1, 3, 10, 99, 1001, 3011]
  * <p>
  * The app can receive two kind of requests: GenerateNumber and GetSequence, which respectively,
  * generate a strictly increasing number, and return the overall sequence of the previously
@@ -214,7 +214,6 @@ public class MonotonicApp implements Replicable, Reconfigurable, BackupableAppli
         }
         return true;
     }
-
 
 
     //==============================================================================================

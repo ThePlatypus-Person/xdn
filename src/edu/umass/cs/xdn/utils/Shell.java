@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+
 import edu.umass.cs.xdn.utils.ShellOutput;
 
 
@@ -69,7 +70,7 @@ public class Shell {
 
 
     public static ShellOutput runCommandWithOutput(String command, boolean isSilent,
-                                 Map<String, String> environmentVariables) {
+                                                   Map<String, String> environmentVariables) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
 
@@ -98,54 +99,54 @@ public class Shell {
         }
     }
 
-    public static ShellOutput runCommandWithOutput(String command, boolean isSilent)  {
+    public static ShellOutput runCommandWithOutput(String command, boolean isSilent) {
         return runCommandWithOutput(command, isSilent, null);
     }
 
-    public static ShellOutput runCommandWithOutput(String command)  {
+    public static ShellOutput runCommandWithOutput(String command) {
         return runCommandWithOutput(command, true);
     }
 
 
     // process output is not printed out due to thread blocking
     public static int runCommandThread(String command, boolean isSilent,
-                                 Map<String, String> environmentVariables) {
-	Thread processThread = new Thread(() -> {
-	    try {
-		ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
+                                       Map<String, String> environmentVariables) {
+        Thread processThread = new Thread(() -> {
+            try {
+                ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
 
-		pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-		pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                pb.redirectError(ProcessBuilder.Redirect.DISCARD);
 
-		if (environmentVariables != null) {
-		    Map<String, String> processEnv = pb.environment();
-		    processEnv.putAll(environmentVariables);
-		}
+                if (environmentVariables != null) {
+                    Map<String, String> processEnv = pb.environment();
+                    processEnv.putAll(environmentVariables);
+                }
 
-		if (!isSilent) {
-		    System.out.println("command: " + command);
-		    if (environmentVariables != null) {
-			System.out.println(environmentVariables.toString());
-		    }
-		}
+                if (!isSilent) {
+                    System.out.println("command: " + command);
+                    if (environmentVariables != null) {
+                        System.out.println(environmentVariables.toString());
+                    }
+                }
 
-		Process process = pb.start();
-		int exitCode = process.waitFor();
+                Process process = pb.start();
+                int exitCode = process.waitFor();
 
-		if (!isSilent) {
-		    System.out.println("exit code: " + exitCode);
-		}
-	    } catch (IOException | InterruptedException e) {
-		throw new RuntimeException(e);
-	    }
-	});
+                if (!isSilent) {
+                    System.out.println("exit code: " + exitCode);
+                }
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
         try {
-	    processThread.start();
+            processThread.start();
         } catch (IllegalThreadStateException e) {
             throw new RuntimeException(e);
         }
 
-	return 0;
+        return 0;
     }
 }

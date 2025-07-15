@@ -123,7 +123,7 @@ public abstract class ReconfigurableNode<NodeIDType> {
                                                              // private ReplicaCoordinator<NodeIDType> createApp(String[] args,
                                                              ReconfigurableNodeConfig<NodeIDType> nodeConfig) {
 
-        System.out.printf("ReconfigurableNode.createApp() - ID: %s\n AR: %s\n", this.myID, nodeConfig.getActiveReplicasReadOnly().toString());
+        //System.out.printf("ReconfigurableNode.createApp() - ID: %s\n AR: %s\n", this.myID, nodeConfig.getActiveReplicasReadOnly().toString());
         AbstractReplicaCoordinator<NodeIDType> appCoordinator = null;
         // ReplicaCoordinator<NodeIDType> appCoordinator = null;
 
@@ -132,6 +132,7 @@ public abstract class ReconfigurableNode<NodeIDType> {
         // else
         {
             Replicable app = ReconfigurationConfig.createApp(args);
+            System.out.printf("%s:ReconfigurableNode.createApp() - app = %s\n", this.myID, app.toString());
             if (app instanceof ClientMessenger)
                 ((ClientMessenger) app).setClientMessenger(messenger);
             else
@@ -157,6 +158,7 @@ public abstract class ReconfigurableNode<NodeIDType> {
                                     PaxosConfig
                                             .getDefaultServiceName(),
                                     nodeConfig.getActiveReplicas()});
+
             appCoordinator.createReplicaGroup(PaxosConfig
                             .getDefaultServiceName(), 0,
                     Config.getGlobalString(PaxosConfig.PC
@@ -326,13 +328,13 @@ public abstract class ReconfigurableNode<NodeIDType> {
                         nodeConfig,
                         (pd = new ReconfigurationPacketDemultiplexer(nodeConfig)
                                 .setThreadName(
-                                    ReconfigurableNode.this.myID.toString()
+                                        ReconfigurableNode.this.myID.toString()
                                 )
-                        ), 
+                        ),
                         true,
                         ReconfigurationConfig.getServerSSLMode())
-                 )
-            )
+                )
+        )
         );
 
         if (!niot.getListeningSocketAddress().equals(isa)
@@ -350,10 +352,10 @@ public abstract class ReconfigurableNode<NodeIDType> {
             AbstractReplicaCoordinator<NodeIDType> app = null;
             // create active
             ActiveReplica<NodeIDType> activeReplica = new ActiveReplica<NodeIDType>(
-                // createAppCoordinator(),
-                app = createApp(args, nodeConfig), 
-                nodeConfig, 
-                messenger
+                    // createAppCoordinator(),
+                    app = createApp(args, nodeConfig),
+                    nodeConfig,
+                    messenger
             );
 
             this.activeReplicas.add(activeReplica);
@@ -540,6 +542,7 @@ public abstract class ReconfigurableNode<NodeIDType> {
                         .toString());
         // append cmdline args to system property based args
         String cmdlineAppArgs = getAppArgs(args);
+
         String[] appArgs = ((sysPropAppArgsAsString != null ? sysPropAppArgsAsString
                 : "")
                 + " " + cmdlineAppArgs).trim().split("(\\s)+");
@@ -579,7 +582,7 @@ public abstract class ReconfigurableNode<NodeIDType> {
 
         System.out.println(">> " + logServerStr + " " + servers + " ready");
         logger.log(Level.INFO, "{0} - Servers {1} ready",
-                new Object[] {ReconfigurableNode.class.getSimpleName(), servers});
+                new Object[]{ReconfigurableNode.class.getSimpleName(), servers});
 
         return rcNodes;
     }

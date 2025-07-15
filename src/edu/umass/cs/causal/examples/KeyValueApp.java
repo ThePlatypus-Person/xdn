@@ -21,7 +21,7 @@ public class KeyValueApp implements Replicable, Reconfigurable {
     private Map<String, AtomicLong> datastoreVersioning = new HashMap<>();
 
     public KeyValueApp(String[] args) {
-        this.myID = args[args.length-1];
+        this.myID = args[args.length - 1];
     }
 
     @Override
@@ -80,7 +80,7 @@ public class KeyValueApp implements Replicable, Reconfigurable {
 
             // update the versioning
             datastoreVersioning.put(r.getKey(), new AtomicLong(
-                            datastoreVersioning.get(r.getKey()).incrementAndGet()));
+                    datastoreVersioning.get(r.getKey()).incrementAndGet()));
             long currentVersion = datastoreVersioning.get(r.getKey()).get();
             r.responseVersion = currentVersion;
             r.dependencies.add(String.format("%s:%s:%d", r.getKey(), myID, currentVersion));

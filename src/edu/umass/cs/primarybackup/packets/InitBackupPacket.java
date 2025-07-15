@@ -117,7 +117,7 @@ public class InitBackupPacket extends PrimaryBackupPacket implements Byteable {
         }
 
         return new InitBackupPacket(
-                decodedProto.getPacketId(), 
+                decodedProto.getPacketId(),
                 decodedProto.getServiceName());
     }
 

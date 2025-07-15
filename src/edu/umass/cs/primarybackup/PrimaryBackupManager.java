@@ -182,9 +182,9 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
     public boolean handlePrimaryBackupPacket(
             PrimaryBackupPacket packet, ExecutedCallback callback) {
-         System.out.printf(">> PBManager-%s: handling packet %s, is_paxos_leader=%b\n",
-                 myNodeID, packet.getRequestType(),
-                 this.paxosManager.isPaxosCoordinator(packet.getServiceName()));
+        System.out.printf(">> PBManager-%s: handling packet %s, is_paxos_leader=%b\n",
+                myNodeID, packet.getRequestType(),
+                this.paxosManager.isPaxosCoordinator(packet.getServiceName()));
 
         // RequestPacket: client -> entry replica
         if (packet instanceof RequestPacket requestPacket) {
@@ -270,8 +270,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
         String serviceName = packet.getServiceName();
         System.out.printf(
-            "%s:PBM.executeRequestCoordinateStateDiff(service=%s)\n",
-            myNodeID, serviceName
+                "%s:PBM.executeRequestCoordinateStateDiff(service=%s)\n",
+                myNodeID, serviceName
         );
 
         // ensure this method is only invoked by the primary node
@@ -322,8 +322,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         ReplicableClientRequest gpPacket = ReplicableClientRequest.wrap(applyStateDiffPacket);
         gpPacket.setClientAddress(messenger.getListeningSocketAddress());
         System.out.printf(
-            "%s:PBM.paxosManager.propose(statediff, epoch=%s)\n",
-            myNodeID, currentEpoch
+                "%s:PBM.paxosManager.propose(statediff, epoch=%s)\n",
+                myNodeID, currentEpoch
         );
 
         this.paxosManager.propose(
@@ -536,7 +536,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         Role myCurrentRole = this.currentRole.get(groupName);
 
         System.out.printf("%s:PBM.executeApplyStateDiffPacket(service=%s, primaryEpoch=%d, currentEpoch=%d, role=%s)\n",
-            myNodeID, groupName, primaryEpoch.counter, currentEpoch.counter, myCurrentRole
+                myNodeID, groupName, primaryEpoch.counter, currentEpoch.counter, myCurrentRole
         );
 
         // System.out.printf(">>> %s:PaxosMiddlewareApp:executeStateDiff role=%s myEpoch=%s epoch=%s stateDiff=%s\n",
@@ -612,7 +612,7 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             currentEpoch = newPrimaryEpoch;
         }
 
-	System.out.printf("%s:PBM.executeStartEpochPacket() - service=%s, currEpoch=%s, primaryEpoch=%s\n", this.myNodeID, groupName, currentEpoch, newPrimaryEpoch);
+        System.out.printf("%s:PBM.executeStartEpochPacket() - service=%s, currEpoch=%s, primaryEpoch=%s\n", this.myNodeID, groupName, currentEpoch, newPrimaryEpoch);
 
         // receive smaller, ignore that epoch.
         // receive current epoch from myself, ignore the StartEpoch packet as it already
@@ -708,34 +708,26 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         );
 	*/
 
-	/*
-	String out1 = String.format("%s:PBM.createPrimaryBackupInstance() - name=%s, epoch=%d", myNodeID, groupName, placementEpoch);
+        boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
+                groupName, placementEpoch);
 
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-	System.out.println("[]==========[] " + out1 + " START []==========[]\n"
-	    + "Stack Trace:\n\tat " + stackTraceString + "\n"
-	    + "[]==========[] " + out1 + " END []==========[]"
-	);
-	*/
-
+	if (alreadyExist) {
+	    System.out.printf("%s:PBM.createPrimaryBackupInstance(service=%s, epoch=%d) - alreadyExist. Returning early...\n",
+	    this.myNodeID, groupName, placementEpoch);
+	return true;
+	}
 
         if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX) |
-	    initialState.startsWith(ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX)
-	) {
+                initialState.startsWith(ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX)
+        ) {
             initialState = String.format("nondeter:create:%s", initialState);
         }
 
         // this.paxosMiddlewareApp = XdnGigapaxosApp
         boolean created = this.paxosManager.createPaxosInstanceForcibly(
                 groupName, placementEpoch, nodes, this.paxosMiddlewareApp, initialState, 0);
-        boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
-                groupName, placementEpoch);
 
-        if (!created && !alreadyExist) {
+        if (!created) {
             throw new PaxosInstanceCreationException((this
                     + " failed to create " + groupName + ":" + placementEpoch
                     + " with state [" + initialState + "]") + "; existing_version=" +
@@ -804,8 +796,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             Map<String, InetAddress> ipAddresses = new HashMap<>();
             NodeConfig<NodeIDType> initNodeConfig = this.messenger.getNodeConfig();
             nodes.forEach(node -> ipAddresses.put(
-                String.valueOf(node).toLowerCase(), 
-                initNodeConfig.getNodeAddress(node)
+                    String.valueOf(node).toLowerCase(),
+                    initNodeConfig.getNodeAddress(node)
             ));
 
             System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
@@ -825,22 +817,22 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         currentPrimaryEpoch.put(groupName, epoch);
                         processOutstandingRequests();
 
-			PrimaryBackupMiddlewareApp middleware;
-			XdnGigapaxosApp xdnApp;
+                        PrimaryBackupMiddlewareApp middleware;
+                        XdnGigapaxosApp xdnApp;
 
-			if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
-			    return;
+                        if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
+                            return;
 
-			middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
+                        middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
 
-			if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
-			    return;
+                        if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
+                            return;
 
-			System.out.println(">> Handling non-deterministic service initialization");
-			xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
+                        System.out.println(">> Handling non-deterministic service initialization");
+                        xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
-			xdnApp.restore(groupName, "nondeter:start:");
-			xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
+                        xdnApp.restore(groupName, "nondeter:start:");
+                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
                     }
             );
 
@@ -866,8 +858,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             Map<String, InetAddress> ipAddresses = new HashMap<>();
             NodeConfig<NodeIDType> initNodeConfig = this.messenger.getNodeConfig();
             nodes.forEach(node -> ipAddresses.put(
-                String.valueOf(node).toLowerCase(), 
-                initNodeConfig.getNodeAddress(node)
+                    String.valueOf(node).toLowerCase(),
+                    initNodeConfig.getNodeAddress(node)
             ));
 
             System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
@@ -876,35 +868,35 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             this.currentPrimaryEpoch.put(groupName, epoch);
             StartEpochPacket startPacket = new StartEpochPacket(groupName, epoch);
             this.paxosManager.propose(
-                groupName,
-                startPacket,
-                (proposedPacket, isHandled) -> {
-                    System.out.printf(
-                        "\n\n>> %s I'M THE PRIMARY NOW FOR %s!!\n\n",
-                        myNodeID, groupName
-                    );
+                    groupName,
+                    startPacket,
+                    (proposedPacket, isHandled) -> {
+                        System.out.printf(
+                                "\n\n>> %s I'M THE PRIMARY NOW FOR %s!!\n\n",
+                                myNodeID, groupName
+                        );
 
-                    currentRole.put(groupName, Role.PRIMARY);
-                    currentPrimary.put(groupName, paxosCoordinatorID);
-                    currentPrimaryEpoch.put(groupName, epoch);
-                    processOutstandingRequests();
+                        currentRole.put(groupName, Role.PRIMARY);
+                        currentPrimary.put(groupName, paxosCoordinatorID);
+                        currentPrimaryEpoch.put(groupName, epoch);
+                        processOutstandingRequests();
 
-                    PrimaryBackupMiddlewareApp middleware;
-                    XdnGigapaxosApp xdnApp;
+                        PrimaryBackupMiddlewareApp middleware;
+                        XdnGigapaxosApp xdnApp;
 
-                    if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
-                        return;
+                        if (!(this.paxosMiddlewareApp instanceof PrimaryBackupMiddlewareApp))
+                            return;
 
-                    middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
+                        middleware = (PrimaryBackupMiddlewareApp) this.paxosMiddlewareApp;
 
-                    if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
-                        return;
+                        if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
+                            return;
 
-                    System.out.println(">> Handling non-deterministic service initialization");
-                    xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
+                        System.out.println(">> Handling non-deterministic service initialization");
+                        xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
-                    xdnApp.restore(groupName, "nondeter:start:");
-                    xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
+                        xdnApp.restore(groupName, "nondeter:start:");
+                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
 
 		    /*
                     Set<NodeIDType> backupNodes = nodes.stream()
@@ -922,8 +914,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     }
 		    */
 
-                    System.out.println("\n>>> non-deterministic service initialization complete\n");
-                }
+                        System.out.println("\n>>> non-deterministic service initialization complete\n");
+                    }
             );
         }
 
@@ -949,8 +941,13 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
     // TODO: also handle deletion of PBInstance with placement epoch
     public boolean deletePrimaryBackupInstance(String groupName, int placementEpoch) {
-        System.out.printf(">> %s:PbManager deletePrimaryBackupInstance name=%s epoch=%d\n",
-                this.myNodeID, groupName, placementEpoch);
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+        System.out.printf(">> %s:PbManager deletePrimaryBackupInstance name=%s epoch=%d\n\tat %s\n",
+                this.myNodeID, groupName, placementEpoch, stackTraceString);
         boolean isPaxosStopped = this.paxosManager.
                 deleteStoppedPaxosInstance(groupName, placementEpoch);
         if (!isPaxosStopped) {

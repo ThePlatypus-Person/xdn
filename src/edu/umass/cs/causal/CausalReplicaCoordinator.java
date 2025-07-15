@@ -119,13 +119,13 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
-		// prepare the updated callback that log the coordination duration
-		long startProcessingTime = System.nanoTime();
+        // prepare the updated callback that log the coordination duration
+        long startProcessingTime = System.nanoTime();
 
         this.logger.log(Level.INFO, "node=" + this.myNodeID + " coordinating request " +
                 request.getClass().getSimpleName());
 
-		ExecutedCallback loggedCallback = callback;
+        ExecutedCallback loggedCallback = callback;
         if (callback != null) {
             loggedCallback = (response, handled) -> {
                 callback.executed(response, handled);
@@ -133,9 +133,9 @@ public class CausalReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordin
                 // Log Time
                 long elapsedTime = System.nanoTime() - startProcessingTime;
                 String timeLog = String.format(
-                    "%50s %6.3fs", 
-                    "CausalReplicaCoordinator.coordinateRequest()",
-                    elapsedTime / 1000_000_000.0
+                        "%50s %6.3fs",
+                        "CausalReplicaCoordinator.coordinateRequest()",
+                        elapsedTime / 1000_000_000.0
                 );
                 System.out.println(timeLog);
             };

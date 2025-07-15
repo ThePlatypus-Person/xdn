@@ -11,62 +11,60 @@ import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
 
 /**
  * @author arun
- *
  */
 public class NoopPaxosApp implements Replicable {
 
-	@Override
-	public boolean execute(Request request) {
-		// execute request here (no-op)
+    @Override
+    public boolean execute(Request request) {
+        // execute request here (no-op)
 
-		if (request instanceof RequestPacket) {
-			String requestValue = ((RequestPacket) request).requestValue;
-			((RequestPacket) request).setResponse("echoing [" +
-					requestValue + "]");
-		}
-		else System.err.println("Unknown packet type: " + request.getSummary());
-		return true;
-	}
+        if (request instanceof RequestPacket) {
+            String requestValue = ((RequestPacket) request).requestValue;
+            ((RequestPacket) request).setResponse("echoing [" +
+                    requestValue + "]");
+        } else System.err.println("Unknown packet type: " + request.getSummary());
+        return true;
+    }
 
-	@Override
-	public boolean execute(Request request,
-			boolean doNotReplyToClient) {
-		// execute request without replying back to client
+    @Override
+    public boolean execute(Request request,
+                           boolean doNotReplyToClient) {
+        // execute request without replying back to client
 
-		// identical to above unless app manages its own messaging
-		return this.execute(request);
-	}
+        // identical to above unless app manages its own messaging
+        return this.execute(request);
+    }
 
-	@Override
-	public String checkpoint(String name) {
-		// should return checkpoint state here
-		return null;
-	}
+    @Override
+    public String checkpoint(String name) {
+        // should return checkpoint state here
+        return null;
+    }
 
-	@Override
-	public boolean restore(String name, String state) {
-		// should update checkpoint state here for name
-		return true;
-	}
+    @Override
+    public boolean restore(String name, String state) {
+        // should update checkpoint state here for name
+        return true;
+    }
 
-	/**
-	 * Needed only if app uses request types other than RequestPacket. Refer
-	 * {@link NoopApp} for a more detailed example.
-	 */
-	@Override
-	public Request getRequest(String stringified)
-			throws RequestParseException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    /**
+     * Needed only if app uses request types other than RequestPacket. Refer
+     * {@link NoopApp} for a more detailed example.
+     */
+    @Override
+    public Request getRequest(String stringified)
+            throws RequestParseException {
+        // TODO Auto-generated method stub
+        return null;
+    }
 
-	/**
-	 * Needed only if app uses request types other than RequestPacket. Refer
-	 * {@link NoopApp} for a more detailed example.
-	 */
-	@Override
-	public Set<IntegerPacketType> getRequestTypes() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    /**
+     * Needed only if app uses request types other than RequestPacket. Refer
+     * {@link NoopApp} for a more detailed example.
+     */
+    @Override
+    public Set<IntegerPacketType> getRequestTypes() {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

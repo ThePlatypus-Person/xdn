@@ -7,46 +7,47 @@ import edu.umass.cs.txn.Transaction;
 
 /**
  * @author arun
- *
  */
 public class LockRequest extends TXPacket {
 
-	private static enum Keys {
-		LOCKID, TXID
-	};
+    private static enum Keys {
+        LOCKID, TXID
+    }
 
-	private final String lockID;
+    ;
 
-	/**
-	 * @param lockID
-	 * @param tx
-	 */
-	public LockRequest(String lockID, Transaction tx) {
-		super(TXPacket.PacketType.LOCK_REQUEST, tx.getTXID());
-		this.lockID = lockID;
-	}
+    private final String lockID;
 
-	/**
-	 * @param json
-	 * @throws JSONException
-	 */
-	public LockRequest(JSONObject json) throws JSONException {
-		super(json);
-		this.lockID = json.getString(Keys.LOCKID.toString());
-	}
+    /**
+     * @param lockID
+     * @param tx
+     */
+    public LockRequest(String lockID, Transaction tx) {
+        super(TXPacket.PacketType.LOCK_REQUEST, tx.getTXID());
+        this.lockID = lockID;
+    }
 
-	public JSONObject toJSONObjectImpl() {
-		throw new RuntimeException("Unimplemented");
-	}
+    /**
+     * @param json
+     * @throws JSONException
+     */
+    public LockRequest(JSONObject json) throws JSONException {
+        super(json);
+        this.lockID = json.getString(Keys.LOCKID.toString());
+    }
 
-	/**
-	 * @return Service name that also acts as a lock ID.
-	 */
-	public String getLockID() {
-		return this.lockID;
-	}
+    public JSONObject toJSONObjectImpl() {
+        throw new RuntimeException("Unimplemented");
+    }
 
-	public String getServiceName() {
-		return this.getLockID();
-	}
+    /**
+     * @return Service name that also acts as a lock ID.
+     */
+    public String getLockID() {
+        return this.lockID;
+    }
+
+    public String getServiceName() {
+        return this.getLockID();
+    }
 }

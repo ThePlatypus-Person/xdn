@@ -63,8 +63,8 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
-		// prepare the updated callback that log the coordination duration
-		long startProcessingTime = System.nanoTime();
+        // prepare the updated callback that log the coordination duration
+        long startProcessingTime = System.nanoTime();
 
         if (!(request instanceof ReplicableClientRequest rcr)) {
             throw new RuntimeException("Unknown request/packet handled by AwReplicaCoordinator " +
@@ -73,7 +73,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         Request clientRequest = rcr.getRequest();
         String serviceName = clientRequest.getServiceName();
 
-		ExecutedCallback loggedCallback = callback;
+        ExecutedCallback loggedCallback = callback;
         if (callback != null) {
             loggedCallback = (response, handled) -> {
                 callback.executed(response, handled);
@@ -81,9 +81,9 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
                 // Log Time
                 long elapsedTime = System.nanoTime() - startProcessingTime;
                 String timeLog = String.format(
-                    "%50s %6.3fs\n", 
-                    "AwReplicaCoordinator.coordinateRequest()",
-                    elapsedTime / 1000_000_000.0
+                        "%50s %6.3fs\n",
+                        "AwReplicaCoordinator.coordinateRequest()",
+                        elapsedTime / 1000_000_000.0
                 );
                 System.out.println(timeLog);
             };
@@ -92,10 +92,10 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
         String requestLogText = "";
         if (clientRequest instanceof XdnHttpRequest xdnHttpRequest) {
             io.netty.handler.codec.http.HttpRequest httpRequest = xdnHttpRequest.getHttpRequest();
-            requestLogText = String.format("%s - %s:%s", 
-                httpRequest.method().toString(), 
-                serviceName,
-                httpRequest.uri()
+            requestLogText = String.format("%s - %s:%s",
+                    httpRequest.method().toString(),
+                    serviceName,
+                    httpRequest.uri()
             );
 
         } else {
@@ -159,7 +159,7 @@ public class AwReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinator
             } catch (JSONException e) {
                 logger.log(Level.WARNING,
                         "{0} failed to parse preferred coordinator in the placement metadata: {1}",
-                        new Object[] { this, e });
+                        new Object[]{this, e});
             }
             if (this.myNodeID.toString().equals(preferredCoordinatorNodeId)) {
                 this.paxosManager.tryToBePaxosCoordinator(serviceName);

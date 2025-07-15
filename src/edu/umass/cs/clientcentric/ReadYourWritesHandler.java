@@ -292,7 +292,7 @@ public class ReadYourWritesHandler {
                 Long prevPeerRequestedFromSeqNum =
                         serviceInstance.peerLastSyncRequestSeqNum().get(senderNodeId);
                 if (prevPeerRequestedFromSeqNum != null && prevPeerRequestedFromSeqNum == peerFromSeqNum) {
-                     return;
+                    return;
                 }
 
                 ClientCentricSyncRequestPacket syncRequestPacket =
@@ -408,7 +408,7 @@ public class ReadYourWritesHandler {
             }
 
             // Case-2: we can execute the ops from our peers, we update our timestamp
-            if (respStartingSeqNum <= ourLatestSeqNum + 1 ) {
+            if (respStartingSeqNum <= ourLatestSeqNum + 1) {
                 List<byte[]> writeOps = syncResponse.getEncodedRequests();
                 long lastSeqNum = respStartingSeqNum + writeOps.size() - 1; // inclusive
                 for (long currSeqNum = respStartingSeqNum; currSeqNum <= lastSeqNum; ++currSeqNum) {

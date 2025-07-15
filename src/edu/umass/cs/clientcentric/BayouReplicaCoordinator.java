@@ -47,9 +47,11 @@ public class BayouReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordina
              VectorTimestamp currTimestamp,                  // the service's current timestamp
              Map<Long, RequestAndCallback> pendingRequests,  // buffered request, waiting for sync
              List<byte[]> executedRequests,                  // ordered executed write requests
-             long offsetSeqNumExecutedRequest,               // starting seq number for executedRequests // TODO: use this for pruning executedRequests
+             long offsetSeqNumExecutedRequest,
+             // starting seq number for executedRequests // TODO: use this for pruning executedRequests
              Map<NodeIDType, VectorTimestamp> peerTimestamp,
-             Map<NodeIDType, Long> peerLastSyncRequestSeqNum // last sequence number that we have requested to peer, preventing storming our peer with redundant request
+             Map<NodeIDType, Long> peerLastSyncRequestSeqNum
+             // last sequence number that we have requested to peer, preventing storming our peer with redundant request
             ) {
     }
 

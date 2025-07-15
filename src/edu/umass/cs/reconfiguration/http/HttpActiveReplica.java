@@ -544,15 +544,15 @@ public class HttpActiveReplica {
 
                 // prepare the callback for this http request
                 TimedExecutedCallback callback = new TimedExecutedCallback(
-                    httpRequest,
-                    new XdnHttpExecutedCallback(
-                        httpRequest, ctx, arFunctions, startXdnRequestProcTime)
+                        httpRequest,
+                        new XdnHttpExecutedCallback(
+                                httpRequest, ctx, arFunctions, startXdnRequestProcTime)
                 );
 
                 io.netty.handler.codec.http.HttpRequest reqData = httpRequest.getHttpRequest();
-                String requestInfo = String.format("\n%s:HAR:%s - %s:%s", 
+                String requestInfo = String.format("\n%s:HAR:%s - %s:%s",
                         this.nodeId,
-                        reqData.method().toString(), 
+                        reqData.method().toString(),
                         serviceName,
                         reqData.uri()
                 );
@@ -774,7 +774,7 @@ public class HttpActiveReplica {
                 // Logger.getGlobal().log(Level.INFO, reqInfo);
                 System.out.println(reqInfo);
                 */
-               
+
                 // Validates the executed Http request
                 if (!(executedRequest instanceof XdnHttpRequest xdnRequest)) {
                     String exceptionMessage = "Unexpected executed request (" +

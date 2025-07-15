@@ -41,7 +41,7 @@ public class ApplyStateDiffPacket extends PrimaryBackupPacket implements Byteabl
     }
 
     private ApplyStateDiffPacket(long packetId,
-                                String serviceName,
+                                 String serviceName,
                                  PrimaryEpoch<?> primaryEpoch,
                                  String stateDiff) {
         assert packetId > 0;

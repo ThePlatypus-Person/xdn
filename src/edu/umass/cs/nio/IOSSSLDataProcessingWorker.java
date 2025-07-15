@@ -1,17 +1,17 @@
 /* Copyright (c) 2015 University of Massachusetts
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * Initial developer(s): V. Arun */
 package edu.umass.cs.nio;
 
@@ -44,19 +44,19 @@ import java.util.logging.Logger;
 
 /**
  * @author arun
- *
- *         This class does SSL wrap/unwrap functions respectively right before
- *         NIO performs an (unencrypted) outgoing network write and right after
- *         NIO receives (encrypted) incoming network reads. It is really not a
- *         "message extractor", just an InterfaceDataProcessingWorker + wrap
- *         functionality, but it implements InterfaceMessageExtractor so that it
- *         is easy for MessageNIOTransport to conduct its functions without
- *         worrying about whether NIOTransport.worker is
- *         InterfaceMessageExtractor or not.
- * 
- *         Nevertheless, this class can be used simply with NIOTransport for
- *         secure byte stream communication as InterfaceMessageExtractor is also
- *         an InterfaceDataProcessingWorker.
+ * <p>
+ * This class does SSL wrap/unwrap functions respectively right before
+ * NIO performs an (unencrypted) outgoing network write and right after
+ * NIO receives (encrypted) incoming network reads. It is really not a
+ * "message extractor", just an InterfaceDataProcessingWorker + wrap
+ * functionality, but it implements InterfaceMessageExtractor so that it
+ * is easy for MessageNIOTransport to conduct its functions without
+ * worrying about whether NIOTransport.worker is
+ * InterfaceMessageExtractor or not.
+ * <p>
+ * Nevertheless, this class can be used simply with NIOTransport for
+ * secure byte stream communication as InterfaceMessageExtractor is also
+ * an InterfaceDataProcessingWorker.
  */
 public class IOSSSLDataProcessingWorker implements InterfaceMessageExtractor {
 
@@ -127,40 +127,40 @@ OSStatus writeEncrypted(SSLConnectionRef connection, const void *data, size_t *d
 }
 	]-*/
 
-	// to handle incoming decrypted data
-	private final DataProcessingWorker decryptedWorker;
+    // to handle incoming decrypted data
+    private final DataProcessingWorker decryptedWorker;
 
-	private final ExecutorService taskWorkers = Executors.newFixedThreadPool(4);
+    private final ExecutorService taskWorkers = Executors.newFixedThreadPool(4);
 
-	private ConcurrentHashMap<SelectableChannel, NonBlockingSSLImpl> sslMap = new ConcurrentHashMap<SelectableChannel, NonBlockingSSLImpl>();
+    private ConcurrentHashMap<SelectableChannel, NonBlockingSSLImpl> sslMap = new ConcurrentHashMap<SelectableChannel, NonBlockingSSLImpl>();
 
-	// to signal connection handshake completion to transport
-	private HandshakeCallback callbackTransport = null;
+    // to signal connection handshake completion to transport
+    private HandshakeCallback callbackTransport = null;
 
-	protected final SSLDataProcessingWorker.SSL_MODES sslMode;
+    protected final SSLDataProcessingWorker.SSL_MODES sslMode;
 
-	private String myID = null;
-	private static final Logger log = NIOTransport.getLogger();
+    private String myID = null;
+    private static final Logger log = NIOTransport.getLogger();
 
-	/**
-	 * @param worker
-	 * @param sslMode
-	 * @throws NoSuchAlgorithmException
-	 * @throws SSLException
-	 */
-	protected IOSSSLDataProcessingWorker(DataProcessingWorker worker,
+    /**
+     * @param worker
+     * @param sslMode
+     * @throws NoSuchAlgorithmException
+     * @throws SSLException
+     */
+    protected IOSSSLDataProcessingWorker(DataProcessingWorker worker,
                                          SSLDataProcessingWorker.SSL_MODES sslMode, String myID)
-			throws NoSuchAlgorithmException, SSLException {
-		this.decryptedWorker = worker;
-		this.sslMode = sslMode;
-		this.myID = myID;
-	}
+            throws NoSuchAlgorithmException, SSLException {
+        this.decryptedWorker = worker;
+        this.sslMode = sslMode;
+        this.myID = myID;
+    }
 
-	protected IOSSSLDataProcessingWorker setHandshakeCallback(
-			HandshakeCallback callback) {
-		this.callbackTransport = callback;
-		return this;
-	}
+    protected IOSSSLDataProcessingWorker setHandshakeCallback(
+            HandshakeCallback callback) {
+        this.callbackTransport = callback;
+        return this;
+    }
 
 	/*-[
 	void processData(EduUmassCsNioIOSSSLDataProcessingWorker *self,
@@ -183,11 +183,11 @@ OSStatus writeEncrypted(SSLConnectionRef connection, const void *data, size_t *d
 	}
 	]-*/
 
-	/* Read encrypted bytes from socketChannel and call extractMessages directly */
-	@Override
-	public void processData(SocketChannel channel, ByteBuffer encrypted) {
+    /* Read encrypted bytes from socketChannel and call extractMessages directly */
+    @Override
+    public void processData(SocketChannel channel, ByteBuffer encrypted) {
 
-	}
+    }
 
 	/*-[
 		int wrap(JavaNioChannelsSocketChannel *channel, JavaNioByteBuffer *unencrypted)
@@ -203,17 +203,17 @@ OSStatus writeEncrypted(SSLConnectionRef connection, const void *data, size_t *d
 		}
 	]-*/
 
-	// invoke SSL wrap
-	protected int wrap(SocketChannel channel, ByteBuffer unencrypted) {
-		return 0;
-	}
+    // invoke SSL wrap
+    protected int wrap(SocketChannel channel, ByteBuffer unencrypted) {
+        return 0;
+    }
 
-	protected boolean isHandshakeComplete(SocketChannel socketChannel) {
-		NonBlockingSSLImpl nioSSL = this.sslMap.get(socketChannel);
-		// socketChannel may be unmapped yet or under exception
-		return nioSSL != null ? ((NonBlockingSSLImpl) nioSSL)
-				.isHandshakeComplete() : false;
-	}
+    protected boolean isHandshakeComplete(SocketChannel socketChannel) {
+        NonBlockingSSLImpl nioSSL = this.sslMap.get(socketChannel);
+        // socketChannel may be unmapped yet or under exception
+        return nioSSL != null ? ((NonBlockingSSLImpl) nioSSL)
+                .isHandshakeComplete() : false;
+    }
 
 	/*-[
 SSLContextRef setupSSL(JavaNioChannelsSocketChannel *socketChannel)
@@ -277,202 +277,203 @@ bool registerInternal(EduUmassCsNioIOSSSLDataProcessingWorker *self,
   	}
 	 ]-*/
 
-	protected boolean register(SelectionKey key, boolean isClient)
-			throws IOException {
-		return false;
-	}
+    protected boolean register(SelectionKey key, boolean isClient)
+            throws IOException {
+        return false;
+    }
 
-	// remove entry from sslMap, no need to check containsKey
-	private void cleanup(SelectionKey key) {
-		NIOTransport.cleanup(key);
-		this.remove(key);
-	}
-	
-	// called by cleanup in NIOTransport
-	protected void remove(SelectionKey key) {
-		SocketChannel socketChannel = (SocketChannel) key.channel();
-		if (socketChannel != null) {
-			NonBlockingSSLImpl nioSSL = this.sslMap.remove(socketChannel);
+    // remove entry from sslMap, no need to check containsKey
+    private void cleanup(SelectionKey key) {
+        NIOTransport.cleanup(key);
+        this.remove(key);
+    }
 
-		}
-	}
+    // called by cleanup in NIOTransport
+    protected void remove(SelectionKey key) {
+        SocketChannel socketChannel = (SocketChannel) key.channel();
+        if (socketChannel != null) {
+            NonBlockingSSLImpl nioSSL = this.sslMap.remove(socketChannel);
 
-	// SSL NIO implementation
-	class NonBlockingSSLImpl {
-		private SelectionKey key;
-		private boolean handshakeComplete = false;
+        }
+    }
 
-		NonBlockingSSLImpl(SelectionKey key) {
-			this.key = key;
-		}
+    // SSL NIO implementation
+    class NonBlockingSSLImpl {
+        private SelectionKey key;
+        private boolean handshakeComplete = false;
 
-		// inbound decrypted data is simply handed over to worker
-		public void onInboundData(ByteBuffer decrypted) {
-			log.log(Level.FINEST,
-					"{0} received decrypted data of length {1} bytes on channel {2}",
-					new Object[] { this, decrypted.remaining(), ((SocketChannel) (key.channel())) });
-			IOSSSLDataProcessingWorker.this.extractMessages(key, decrypted);
-		}
+        NonBlockingSSLImpl(SelectionKey key) {
+            this.key = key;
+        }
 
-		public void onHandshakeFailure(Exception cause) {
-			cause.printStackTrace();
-			log.log(Level.WARNING,
-					"{0} encountered SSL handshake failure; cleaning up channel {1}",
-					new Object[] { this, key.channel() });
-			// should only be invoked by selection thread
-			cleanup(key);
-		}
+        // inbound decrypted data is simply handed over to worker
+        public void onInboundData(ByteBuffer decrypted) {
+            log.log(Level.FINEST,
+                    "{0} received decrypted data of length {1} bytes on channel {2}",
+                    new Object[]{this, decrypted.remaining(), ((SocketChannel) (key.channel()))});
+            IOSSSLDataProcessingWorker.this.extractMessages(key, decrypted);
+        }
 
-		public void onHandshakeSuccess() {
-			this.setHandshakeComplete();
-			log.log(Level.FINE,
-					"{0} conducted successful SSL handshake for channel {1}",
-					new Object[] { this, key.channel() });
-		}
+        public void onHandshakeFailure(Exception cause) {
+            cause.printStackTrace();
+            log.log(Level.WARNING,
+                    "{0} encountered SSL handshake failure; cleaning up channel {1}",
+                    new Object[]{this, key.channel()});
+            // should only be invoked by selection thread
+            cleanup(key);
+        }
 
-		public void onClosed() {
-			log.log(Level.FINE, "{0} cleaning up closed SSL channel {1}",
-					new Object[] { this, key.channel() });
-			cleanup(key);
-		}
+        public void onHandshakeSuccess() {
+            this.setHandshakeComplete();
+            log.log(Level.FINE,
+                    "{0} conducted successful SSL handshake for channel {1}",
+                    new Object[]{this, key.channel()});
+        }
 
-		public void onOutboundData(ByteBuffer encrypted) {
-			SocketChannel channel = ((SocketChannel) key.channel());
-			try {
-				log.log(Level.FINEST,
-						"{0} sending encrypted data of length {1} bytes to send on channel {2}",
-						new Object[] { this, encrypted.remaining(),
-								channel });
-				/* The assertion is true because we initialized key in the
-				 * parent constructor. This method is the only reason we need
-				 * the key in the parent, otherwise AbstractNIOSSL is just an
-				 * SSL template and has nothing to do with NIO. */
-				assert (key != null);
-				int totalLength = encrypted.remaining();
-				/* Try few times, but can't really wait here except in case
-				 * of handshaking when we have to send everything out.
-				 */
-				for (int attempts = 0; (attempts < 1 || !this
-						.isHandshakeComplete()) && encrypted.hasRemaining(); attempts++)
-					channel.write(encrypted);
+        public void onClosed() {
+            log.log(Level.FINE, "{0} cleaning up closed SSL channel {1}",
+                    new Object[]{this, key.channel()});
+            cleanup(key);
+        }
 
-				NIOInstrumenter.incrEncrBytesSent(totalLength - encrypted.remaining());
+        public void onOutboundData(ByteBuffer encrypted) {
+            SocketChannel channel = ((SocketChannel) key.channel());
+            try {
+                log.log(Level.FINEST,
+                        "{0} sending encrypted data of length {1} bytes to send on channel {2}",
+                        new Object[]{this, encrypted.remaining(),
+                                channel});
+                /* The assertion is true because we initialized key in the
+                 * parent constructor. This method is the only reason we need
+                 * the key in the parent, otherwise AbstractNIOSSL is just an
+                 * SSL template and has nothing to do with NIO. */
+                assert (key != null);
+                int totalLength = encrypted.remaining();
+                /* Try few times, but can't really wait here except in case
+                 * of handshaking when we have to send everything out.
+                 */
+                for (int attempts = 0; (attempts < 1 || !this
+                        .isHandshakeComplete()) && encrypted.hasRemaining(); attempts++)
+                    channel.write(encrypted);
 
-				// not a showstopper if we don't absolutely complete the write
-				if (encrypted.hasRemaining())
-					log.log(Level.FINE,
-							"{0} failed to bulk-write {1} bytes despite multiple attempts ({2} bytes left unsent)",
-							new Object[] { this, totalLength,
-									encrypted.remaining(), });
+                NIOInstrumenter.incrEncrBytesSent(totalLength - encrypted.remaining());
 
-			} catch (IOException | IllegalStateException exc) {
-				// need to cleanup as we are screwed
-				log.severe(this + " ran into " + exc.getClass().getSimpleName()
-						+ "  while writing outbound data; closing channel");
-				cleanup(key);
-				throw new IllegalStateException(exc);
-			}
-		}
+                // not a showstopper if we don't absolutely complete the write
+                if (encrypted.hasRemaining())
+                    log.log(Level.FINE,
+                            "{0} failed to bulk-write {1} bytes despite multiple attempts ({2} bytes left unsent)",
+                            new Object[]{this, totalLength,
+                                    encrypted.remaining(),});
 
-		public String toString() {
-			return this.getClass().getSimpleName() + getMyID();
-		}
+            } catch (IOException | IllegalStateException exc) {
+                // need to cleanup as we are screwed
+                log.severe(this + " ran into " + exc.getClass().getSimpleName()
+                        + "  while writing outbound data; closing channel");
+                cleanup(key);
+                throw new IllegalStateException(exc);
+            }
+        }
 
-		private synchronized boolean isHandshakeComplete() {
-			return this.handshakeComplete;
-		}
+        public String toString() {
+            return this.getClass().getSimpleName() + getMyID();
+        }
 
-		private synchronized void setHandshakeComplete() {
-			this.handshakeComplete = true;
-			callbackTransport.handshakeComplete(this.key);
-		}
-	}
+        private synchronized boolean isHandshakeComplete() {
+            return this.handshakeComplete;
+        }
 
-	public String toString() {
-		return this.getClass().getSimpleName() + getMyID();
-	}
+        private synchronized void setHandshakeComplete() {
+            this.handshakeComplete = true;
+            callbackTransport.handshakeComplete(this.key);
+        }
+    }
 
-	/**
-	 * @return My ID, primarily for logging purposes.
-	 */
-	public String getMyID() {
-		return this.myID;
-	}
+    public String toString() {
+        return this.getClass().getSimpleName() + getMyID();
+    }
 
-	protected void setMyID(String id) {
-		this.myID = id;
-	}
+    /**
+     * @return My ID, primarily for logging purposes.
+     */
+    public String getMyID() {
+        return this.myID;
+    }
 
-	public void stop() {
-		this.taskWorkers.shutdownNow();
-		if (this.decryptedWorker instanceof InterfaceMessageExtractor)
-			((InterfaceMessageExtractor) this.decryptedWorker).stop();
-	}
+    protected void setMyID(String id) {
+        this.myID = id;
+    }
 
-	@Override
-	public void addPacketDemultiplexer(AbstractPacketDemultiplexer<?> pd) {
-		if (this.decryptedWorker instanceof InterfaceMessageExtractor)
-			((InterfaceMessageExtractor) this.decryptedWorker)
-					.addPacketDemultiplexer(pd);
-	}
-	@Override
-	public void precedePacketDemultiplexer(AbstractPacketDemultiplexer<?> pd) {
-		if (this.decryptedWorker instanceof InterfaceMessageExtractor)
-			((InterfaceMessageExtractor) this.decryptedWorker)
-					.precedePacketDemultiplexer(pd);
-	}
+    public void stop() {
+        this.taskWorkers.shutdownNow();
+        if (this.decryptedWorker instanceof InterfaceMessageExtractor)
+            ((InterfaceMessageExtractor) this.decryptedWorker).stop();
+    }
 
-	@Override
-	public void processLocalMessage(InetSocketAddress sockAddr, byte[] msg) {
-		if (this.decryptedWorker instanceof InterfaceMessageExtractor)
-			((InterfaceMessageExtractor) this.decryptedWorker)
-					.processLocalMessage(sockAddr, msg);
+    @Override
+    public void addPacketDemultiplexer(AbstractPacketDemultiplexer<?> pd) {
+        if (this.decryptedWorker instanceof InterfaceMessageExtractor)
+            ((InterfaceMessageExtractor) this.decryptedWorker)
+                    .addPacketDemultiplexer(pd);
+    }
 
-	}
+    @Override
+    public void precedePacketDemultiplexer(AbstractPacketDemultiplexer<?> pd) {
+        if (this.decryptedWorker instanceof InterfaceMessageExtractor)
+            ((InterfaceMessageExtractor) this.decryptedWorker)
+                    .precedePacketDemultiplexer(pd);
+    }
 
-	private void extractMessages(SelectionKey key, ByteBuffer incoming) {
-		ByteBuffer bbuf = null;
-		try {
-			while (incoming.hasRemaining()
-					&& (bbuf = this.extractMessage(key, incoming)) != null) {
-				this.decryptedWorker.processData((SocketChannel) key.channel(),
-						bbuf);
-			}
-		} catch (IOException e) {
-			log.severe(this + e.getMessage() + " on channel " + key.channel());
-			e.printStackTrace();
-			// incoming is emptied out; what else to do here?
-		}
-	}
+    @Override
+    public void processLocalMessage(InetSocketAddress sockAddr, byte[] msg) {
+        if (this.decryptedWorker instanceof InterfaceMessageExtractor)
+            ((InterfaceMessageExtractor) this.decryptedWorker)
+                    .processLocalMessage(sockAddr, msg);
 
-	// extracts a single message
-	private ByteBuffer extractMessage(SelectionKey key, ByteBuffer incoming)
-			throws IOException {
-		NIOTransport.AlternatingByteBuffer abbuf = (NIOTransport.AlternatingByteBuffer) key
-				.attachment();
-		assert (abbuf != null);
-		if (abbuf.headerBuf.remaining() > 0) {
-			Util.put(abbuf.headerBuf, incoming);
+    }
+
+    private void extractMessages(SelectionKey key, ByteBuffer incoming) {
+        ByteBuffer bbuf = null;
+        try {
+            while (incoming.hasRemaining()
+                    && (bbuf = this.extractMessage(key, incoming)) != null) {
+                this.decryptedWorker.processData((SocketChannel) key.channel(),
+                        bbuf);
+            }
+        } catch (IOException e) {
+            log.severe(this + e.getMessage() + " on channel " + key.channel());
+            e.printStackTrace();
+            // incoming is emptied out; what else to do here?
+        }
+    }
+
+    // extracts a single message
+    private ByteBuffer extractMessage(SelectionKey key, ByteBuffer incoming)
+            throws IOException {
+        NIOTransport.AlternatingByteBuffer abbuf = (NIOTransport.AlternatingByteBuffer) key
+                .attachment();
+        assert (abbuf != null);
+        if (abbuf.headerBuf.remaining() > 0) {
+            Util.put(abbuf.headerBuf, incoming);
 //			abbuf.readHeader(incoming);
-			if (abbuf.headerBuf.remaining() == 0) {
-				abbuf.bodyBuf = ByteBuffer.allocate(NIOTransport
-						.getPayloadLength((ByteBuffer) abbuf.headerBuf.flip()));
-				assert (abbuf.bodyBuf != null && abbuf.bodyBuf.capacity() > 0);
-			}
-		}
-		ByteBuffer retval = null;
-		if (abbuf.bodyBuf != null) {
-			Util.put(abbuf.bodyBuf, incoming);
-			if (abbuf.bodyBuf.remaining() == 0) {
-				retval = (ByteBuffer) abbuf.bodyBuf.flip();
-				abbuf.clear(); // prepare for next read
-			}
-		}
-		return retval;
-	}
+            if (abbuf.headerBuf.remaining() == 0) {
+                abbuf.bodyBuf = ByteBuffer.allocate(NIOTransport
+                        .getPayloadLength((ByteBuffer) abbuf.headerBuf.flip()));
+                assert (abbuf.bodyBuf != null && abbuf.bodyBuf.capacity() > 0);
+            }
+        }
+        ByteBuffer retval = null;
+        if (abbuf.bodyBuf != null) {
+            Util.put(abbuf.bodyBuf, incoming);
+            if (abbuf.bodyBuf.remaining() == 0) {
+                retval = (ByteBuffer) abbuf.bodyBuf.flip();
+                abbuf.clear(); // prepare for next read
+            }
+        }
+        return retval;
+    }
 
-	@Override
-	public void demultiplexMessage(Object message) {
-		this.decryptedWorker.demultiplexMessage(message);
-	}
+    @Override
+    public void demultiplexMessage(Object message) {
+        this.decryptedWorker.demultiplexMessage(message);
+    }
 }

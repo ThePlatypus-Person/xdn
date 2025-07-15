@@ -1,11 +1,12 @@
 package edu.umass.cs.utils;
+
 /**
-@author V. Arun
- * @param <KeyType> 
+ * @param <KeyType>
+ * @author V. Arun
  */
 public interface Keyable<KeyType> {
-	/**
-	 * @return The key.
-	 */
-	public KeyType getKey();
+    /**
+     * @return The key.
+     */
+    public KeyType getKey();
 }

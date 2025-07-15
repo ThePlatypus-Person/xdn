@@ -87,8 +87,8 @@ public class E2ELatencyAwareRedirectorTest extends DefaultTest {
                     + groundTruth.get(isa)
                     + "; learned="
                     + (this.redirector.e2eLatencies.containsKey(isa) ? Util
-                            .df(this.redirector.e2eLatencies.get(isa))
-                            : "null") + "; samples="
+                    .df(this.redirector.e2eLatencies.get(isa))
+                    : "null") + "; samples="
                     + redirections.get(isa));
     }
 

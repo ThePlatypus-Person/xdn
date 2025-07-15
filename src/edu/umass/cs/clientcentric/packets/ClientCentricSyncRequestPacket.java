@@ -15,7 +15,7 @@ public class ClientCentricSyncRequestPacket extends ClientCentricPacket {
     private final Long fromSequenceNumber;
 
     public ClientCentricSyncRequestPacket(String senderId, String serviceName,
-                                           Long fromSequenceNumber) {
+                                          Long fromSequenceNumber) {
         this(System.currentTimeMillis(), senderId, serviceName, fromSequenceNumber);
     }
 

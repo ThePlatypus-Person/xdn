@@ -9,22 +9,21 @@ import edu.umass.cs.reconfiguration.ActiveReplica;
 /**
  * A minimal interface defining active replica server functions. This
  * interface is implemented by {@link ActiveReplica}.
- * 
- * @author gaozy
  *
+ * @author gaozy
  */
 public interface ActiveReplicaFunctions {
-	
-	/**
-	 * @param request 
-	 * @param callback 
-	 * @return true if request is executed successfully
-	 */
-	public boolean handRequestToAppForHttp(Request request, ExecutedCallback callback);
 
-	/**
-	 * @param request
-	 * @param addr
-	 */
-	public void updateDemandStatsFromHttp(Request request, InetAddress addr);
+    /**
+     * @param request
+     * @param callback
+     * @return true if request is executed successfully
+     */
+    public boolean handRequestToAppForHttp(Request request, ExecutedCallback callback);
+
+    /**
+     * @param request
+     * @param addr
+     */
+    public void updateDemandStatsFromHttp(Request request, InetAddress addr);
 }

@@ -22,7 +22,7 @@ public class TimedExecutedCallback implements ExecutedCallback {
         this.inner = inner;
         this.startTime = System.nanoTime();
         this.startTimestamp = LocalDateTime.now().format(
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
         );
     }
 

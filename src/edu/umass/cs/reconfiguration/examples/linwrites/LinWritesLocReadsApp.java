@@ -18,7 +18,6 @@ import java.util.Set;
  * but reads are served by each replica locally.
  *
  * @author arun
- *
  */
 public class LinWritesLocReadsApp extends StatefulAdderApp {
 
@@ -35,7 +34,7 @@ public class LinWritesLocReadsApp extends StatefulAdderApp {
         // uncoordinated
         else if (request instanceof SimpleAppRequest && ((SimpleAppRequest)
                 request).getRequestType().equals(SimpleAppRequest.PacketType.LOCAL_READ)) {
-            ((SimpleAppRequest) request).setResponse("total="+this.total);
+            ((SimpleAppRequest) request).setResponse("total=" + this.total);
         }
 
         return true;
@@ -50,7 +49,7 @@ public class LinWritesLocReadsApp extends StatefulAdderApp {
             throws RequestParseException {
         try {
             return new SimpleAppRequest(new JSONObject(stringified));
-        } catch(JSONException je) {
+        } catch (JSONException je) {
             throw new RequestParseException(je);
         }
     }

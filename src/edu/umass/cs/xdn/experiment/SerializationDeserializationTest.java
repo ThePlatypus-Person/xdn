@@ -21,7 +21,7 @@ public class SerializationDeserializationTest {
         new Random().nextBytes(data);
         int numTrial = 5000;
         System.out.printf("Testing serialization-deserialization with %.2f KB data and %d trials\n",
-                data.length/1000f, numTrial);
+                data.length / 1000f, numTrial);
 
         // test compression speed
         byte[] finalCompressedData = null;

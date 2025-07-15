@@ -52,11 +52,11 @@ public class NodeConfigUtils {
             throws IOException {
         Properties props = new Properties();
         props.load(new FileInputStream(filename));
-        Map<String,InetSocketAddress> map = new HashMap<String,
+        Map<String, InetSocketAddress> map = new HashMap<String,
                 InetSocketAddress>();
-        for(Object prop : props.keySet()) {
-            String key=prop.toString().trim();
-            if(key.startsWith(nodePrefix))
+        for (Object prop : props.keySet()) {
+            String key = prop.toString().trim();
+            if (key.startsWith(nodePrefix))
                 map.put(key.replace(nodePrefix, ""),
                         Util.getOffsettedAddress(
                                 Util.getInetSocketAddressFromString(props.getProperty
@@ -64,17 +64,18 @@ public class NodeConfigUtils {
         }
         return getNodeConfig(map);
     }
+
     public static NodeConfig<String> getNodeConfigFromFile(String filename,
                                                            String nodePrefix) throws IOException {
         return getNodeConfigFromFile(filename, nodePrefix, 0);
     }
 
     public static void main(String[] args) throws IOException {
-        String filename = "tmp.properties", prefix="server.";
+        String filename = "tmp.properties", prefix = "server.";
         Writer writer = new BufferedWriter(new OutputStreamWriter(new
                 FileOutputStream(filename)));
-        writer.write(prefix+"1 = localhost:2134\n");
-        writer.write(prefix+"2= 128.119.245.20:2135\n");
+        writer.write(prefix + "1 = localhost:2134\n");
+        writer.write(prefix + "2= 128.119.245.20:2135\n");
         writer.close();
         NodeConfig<?> nc = NodeConfigUtils.getNodeConfigFromFile(filename,
                 "server.");

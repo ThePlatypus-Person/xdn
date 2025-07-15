@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.SSLException;
 
@@ -1610,6 +1611,19 @@ public class Reconfigurator<NodeIDType> implements
         assert (!this.isTaskRunning(this.getTaskKey(WaitAckStopEpoch.class,
                 rcRecReq)));
 
+	/*
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+	System.out.printf("Stack Trace %s:R.spawnPrimaryReconfiguratorTask() :\n\tat %s", 
+	    this.messenger.getMyID(),
+	    stackTraceString
+	);
+	*/
+
+
         ReconfigurationConfig.log.log(Level.FINE,
                 MyLogger.FORMAT[8],
                 new Object[]{this, "spawning WaitAckStopEpoch for",
@@ -1985,7 +1999,7 @@ public class Reconfigurator<NodeIDType> implements
      *
      * @param name The service name
      * @return pair of Node ID set and optional metadata if reconfiguration is needed,
-     *          otherwise null is returned.
+     * otherwise null is returned.
      */
     private NodeIdsMetadataPair<NodeIDType> shouldReconfigure2(String name) {
         // returns null if no current actives
@@ -2080,6 +2094,15 @@ public class Reconfigurator<NodeIDType> implements
                                             String initialState, Map<String, String> nameStates,
                                             Map<NodeIDType, InetSocketAddress> newlyAddedNodes,
                                             ReconfigureUponActivesChange policy) {
+
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+        System.out.printf("%s:R:initiateReconfiguration()\n\tat %s\n", 
+	    this.messenger.getMyID(), stackTraceString);
+
         if (newActives == null)
             return false;
 
@@ -3859,6 +3882,13 @@ public class Reconfigurator<NodeIDType> implements
 
     @Override
     public ReconfiguratorRequest sendRequest(ReconfiguratorRequest request) {
+	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+	String stackTraceString = Arrays.stream(stackTrace)
+	.skip(1) // Skip the top element (this method call itself)
+	.map(StackTraceElement::toString)
+	.collect(Collectors.joining("\n\tat "));
+        System.out.printf("%s:R:sendRequest() \n\tat %s\n", this.messenger.getMyID(), stackTraceString);
+
         RequestCallbackFuture<ReconfiguratorRequest> callbackFuture;
         BasicReconfigurationPacket<?> packet = request instanceof ClientReconfigurationPacket ? (ClientReconfigurationPacket) request
                 : request instanceof ServerReconfigurationPacket ? (ServerReconfigurationPacket<?>) request

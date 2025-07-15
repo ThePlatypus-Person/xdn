@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2015 University of Massachusetts
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you
  * may not use this file except in compliance with the License. You
  * may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
- * 
+ *
  * Initial developer(s): V. Arun
  */
 package edu.umass.cs.reconfiguration.reconfigurationpackets;
@@ -28,113 +28,115 @@ import edu.umass.cs.reconfiguration.reconfigurationutils.AbstractDemandProfile;
 import edu.umass.cs.utils.Util;
 
 /**
- * @author V. Arun
  * @param <NodeIDType>
+ * @author V. Arun
  */
 public class DemandReport<NodeIDType> extends
-		BasicReconfigurationPacket<NodeIDType> implements
-		ReplicableRequest {
-	private enum Keys {
-		STATS, QID
-	};
+        BasicReconfigurationPacket<NodeIDType> implements
+        ReplicableRequest {
+    private enum Keys {
+        STATS, QID
+    }
 
-	private final JSONObject stats;
-	private final long requestID;
+    ;
 
-	/**
-	 * @param initiator
-	 * @param name
-	 * @param epochNumber
-	 * @param stats
-	 */
-	public DemandReport(NodeIDType initiator, String name, int epochNumber,
-			JSONObject stats) {
-		super(initiator, ReconfigurationPacket.PacketType.DEMAND_REPORT, name,
-				epochNumber);
-		this.stats = stats;
-		this.requestID = (long)(Math.random()*Long.MAX_VALUE);
-	}
+    private final JSONObject stats;
+    private final long requestID;
 
-	/**
-	 * @param initiator
-	 * @param name
-	 * @param epochNumber
-	 * @param demand
-	 */
-	public DemandReport(NodeIDType initiator, String name, int epochNumber,
-			AbstractDemandProfile demand) {
-		super(initiator, ReconfigurationPacket.PacketType.DEMAND_REPORT, name,
-				epochNumber);
-		this.stats = demand.getDemandStats();
-		this.requestID = (long)(Math.random()*Long.MAX_VALUE);
-	}
+    /**
+     * @param initiator
+     * @param name
+     * @param epochNumber
+     * @param stats
+     */
+    public DemandReport(NodeIDType initiator, String name, int epochNumber,
+                        JSONObject stats) {
+        super(initiator, ReconfigurationPacket.PacketType.DEMAND_REPORT, name,
+                epochNumber);
+        this.stats = stats;
+        this.requestID = (long) (Math.random() * Long.MAX_VALUE);
+    }
 
-	/**
-	 * @param json
-	 * @param unstringer
-	 * @throws JSONException
-	 */
-	public DemandReport(JSONObject json, Stringifiable<NodeIDType> unstringer)
-			throws JSONException {
-		super(json, unstringer);
-		this.stats = json.getJSONObject(Keys.STATS.toString());
-		this.requestID = json.getLong(Keys.QID.toString());
-	}
+    /**
+     * @param initiator
+     * @param name
+     * @param epochNumber
+     * @param demand
+     */
+    public DemandReport(NodeIDType initiator, String name, int epochNumber,
+                        AbstractDemandProfile demand) {
+        super(initiator, ReconfigurationPacket.PacketType.DEMAND_REPORT, name,
+                epochNumber);
+        this.stats = demand.getDemandStats();
+        this.requestID = (long) (Math.random() * Long.MAX_VALUE);
+    }
 
-	public JSONObject toJSONObjectImpl() throws JSONException {
-		JSONObject json = super.toJSONObjectImpl();
-		json.put(Keys.STATS.toString(), this.stats);
-		json.put(Keys.QID.toString(), this.requestID);
-		return json;
-	}
+    /**
+     * @param json
+     * @param unstringer
+     * @throws JSONException
+     */
+    public DemandReport(JSONObject json, Stringifiable<NodeIDType> unstringer)
+            throws JSONException {
+        super(json, unstringer);
+        this.stats = json.getJSONObject(Keys.STATS.toString());
+        this.requestID = json.getLong(Keys.QID.toString());
+    }
 
-	/**
-	 * @return The demand request statistics returned as a JSON object.
-	 */
-	public JSONObject getStats() {
-		return this.stats;
-	}
+    public JSONObject toJSONObjectImpl() throws JSONException {
+        JSONObject json = super.toJSONObjectImpl();
+        json.put(Keys.STATS.toString(), this.stats);
+        json.put(Keys.QID.toString(), this.requestID);
+        return json;
+    }
 
-	@Override
-	public IntegerPacketType getRequestType() {
-		return ReconfigurationPacket.PacketType.DEMAND_REPORT;
-	}
+    /**
+     * @return The demand request statistics returned as a JSON object.
+     */
+    public JSONObject getStats() {
+        return this.stats;
+    }
 
-	@Override
-	public boolean needsCoordination() {
-		return false;
-	}
+    @Override
+    public IntegerPacketType getRequestType() {
+        return ReconfigurationPacket.PacketType.DEMAND_REPORT;
+    }
 
-	@Override
-	public void setNeedsCoordination(boolean b) {
-		// do nothing
-	}
+    @Override
+    public boolean needsCoordination() {
+        return false;
+    }
 
-	public static void main(String[] args) {
-		JSONObject stats = new JSONObject();
-		try {
-			Util.assertAssertionsEnabled();
-			stats.put("rate", 0.33);
-			stats.put("numRequests", 24);
-			stats.put("numTotalRequests", 24);
+    @Override
+    public void setNeedsCoordination(boolean b) {
+        // do nothing
+    }
 
-			DemandReport<Integer> dr = new DemandReport<Integer>(4, "name1", 2,
-					stats);
-			System.out.println(dr);
-			DemandReport<Integer> dr2 = new DemandReport<Integer>(
-					dr.toJSONObject(), new StringifiableDefault<Integer>(0));
-			System.out.println(dr2);
-			assert (dr.toString().length() == dr2.toString().length());
-			assert (dr.toString().indexOf("}") == dr2.toString().indexOf("}"));
-			assert (dr.toString().equals(dr2.toString())) : dr.toString()
-					+ "!=" + dr2.toString();
-		} catch (JSONException je) {
-			je.printStackTrace();
-		}
-	}
+    public static void main(String[] args) {
+        JSONObject stats = new JSONObject();
+        try {
+            Util.assertAssertionsEnabled();
+            stats.put("rate", 0.33);
+            stats.put("numRequests", 24);
+            stats.put("numTotalRequests", 24);
 
-	@Override
-	public long getRequestID() {
-		return 0;
-	}
+            DemandReport<Integer> dr = new DemandReport<Integer>(4, "name1", 2,
+                    stats);
+            System.out.println(dr);
+            DemandReport<Integer> dr2 = new DemandReport<Integer>(
+                    dr.toJSONObject(), new StringifiableDefault<Integer>(0));
+            System.out.println(dr2);
+            assert (dr.toString().length() == dr2.toString().length());
+            assert (dr.toString().indexOf("}") == dr2.toString().indexOf("}"));
+            assert (dr.toString().equals(dr2.toString())) : dr.toString()
+                    + "!=" + dr2.toString();
+        } catch (JSONException je) {
+            je.printStackTrace();
+        }
+    }
+
+    @Override
+    public long getRequestID() {
+        return 0;
+    }
 }

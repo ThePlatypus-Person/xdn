@@ -1,6 +1,7 @@
 # Causal Coordination Protocol
 
 ## System model
+
 - We have an application that can accept read and write operations.
 - The application is replicated into `N` replicas.
 - Each replica stores its local directly-acyclic graph (DAG).
@@ -9,8 +10,8 @@
 - The used vector timestamps have `N` components, each containing a counter of
   updates happening in a node replica represented by that component.
   Example of vector timestamp: `<AR0:0, AR1:10, AR2:0>`.
-- In the DAG, there is a specific root vertex with zero vector timestamps 
-  (all components having counter value of zero). 
+- In the DAG, there is a specific root vertex with zero vector timestamps
+  (all components having counter value of zero).
 
 ## Event-action protocol
 

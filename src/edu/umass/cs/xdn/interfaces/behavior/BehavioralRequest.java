@@ -22,15 +22,19 @@ public interface BehavioralRequest {
     default boolean isReadOnlyRequest() {
         return this.getBehaviors().contains(RequestBehaviorType.READ_ONLY);
     }
+
     default boolean isWriteOnlyRequest() {
         return this.getBehaviors().contains(RequestBehaviorType.WRITE_ONLY);
     }
+
     default boolean isReadModifyWriteRequest() {
         return this.getBehaviors().contains(RequestBehaviorType.READ_MODIFY_WRITE);
     }
+
     default boolean isMonotonicRequest() {
         return this.getBehaviors().contains(RequestBehaviorType.MONOTONIC);
     }
+
     default boolean isNilExternal() {
         return this.getBehaviors().contains(RequestBehaviorType.NIL_EXTERNAL);
     }

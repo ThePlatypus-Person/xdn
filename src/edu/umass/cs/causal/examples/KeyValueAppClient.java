@@ -49,7 +49,7 @@ public class KeyValueAppClient extends ReconfigurableAppClientAsync<edu.umass.cs
         List<String> keys = new ArrayList<>();
         List<String> values = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            keys.add("key-" + i%2);
+            keys.add("key-" + i % 2);
             values.add("value-" + i);
         }
 
@@ -97,7 +97,7 @@ public class KeyValueAppClient extends ReconfigurableAppClientAsync<edu.umass.cs
     @Override
     public Request getRequest(String stringified) throws RequestParseException {
         assert stringified != null && stringified.startsWith(edu.umass.cs.causal.examples.KeyValueAppRequest.SERIALIZED_PREFIX) :
-            "KeyValueAppClient: Invalid encoded request";
+                "KeyValueAppClient: Invalid encoded request";
         return edu.umass.cs.causal.examples.KeyValueAppRequest.createFromString(stringified);
     }
 

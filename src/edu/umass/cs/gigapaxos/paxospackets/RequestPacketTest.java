@@ -8,13 +8,13 @@ import org.junit.Test;
  */
 public class RequestPacketTest extends DefaultTest {
     /**
-     * 
+     *
      */
     public RequestPacketTest() {
     }
 
     /**
-     * 
+     *
      */
     @Test
     public void testCheckFields() {

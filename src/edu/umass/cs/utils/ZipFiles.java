@@ -28,7 +28,7 @@ public class ZipFiles {
      * @param zipDirName the target archived file location.
      */
     public static void zipDirectory(File dir, String zipDirName) {
-	System.out.printf("ZF.zipDirectory() - dir=%s, zipDir=%s\n", dir.getName(), zipDirName);
+        System.out.printf("ZF.zipDirectory() - dir=%s, zipDir=%s\n", dir.getName(), zipDirName);
         try {
             List<String> files = populateFilesList(dir);
             // now zip files one by one
@@ -37,33 +37,38 @@ public class ZipFiles {
             ZipOutputStream zos = new ZipOutputStream(fos);
 
             for (String filePath : files) {
-		File file = new File(filePath);
-		if (filePath.equals(dir.getAbsolutePath()))
-		    continue;
+                File file = new File(filePath);
+                if (filePath.equals(dir.getAbsolutePath())) {
+                    continue;
+                }
 
-		if (file.isDirectory()) {
-		    //System.out.printf("Directory %s added\n", filePath);
+                if (!file.exists()) {
+                    continue;
+                }
 
-		    String entryName = filePath.substring(dir.getAbsolutePath().length() + 1) + File.separator;
-		    zos.putNextEntry(new ZipEntry(entryName));
-		    zos.closeEntry();  // Empty directory, just create the entry
-		} else {
-		    String entryName = filePath.substring(dir.getAbsolutePath().length() + 1);
-		    //System.out.printf("File %s added\n", entryName);
+                if (file.isDirectory()) {
+                    //System.out.printf("Directory %s added\n", filePath);
 
-		    zos.putNextEntry(new ZipEntry(entryName));
-		    //read the file and write to ZipOutputStream
-		    FileInputStream fis = new FileInputStream(filePath);
-		    byte[] buffer = new byte[1024];
-		    int len;
+                    String entryName = filePath.substring(dir.getAbsolutePath().length() + 1) + File.separator;
+                    zos.putNextEntry(new ZipEntry(entryName));
+                    zos.closeEntry();  // Empty directory, just create the entry
+                } else {
+                    String entryName = filePath.substring(dir.getAbsolutePath().length() + 1);
+                    //System.out.printf("File %s added\n", entryName);
 
-		    while ((len = fis.read(buffer)) > 0) {
-			zos.write(buffer, 0, len);
-		    }
+                    zos.putNextEntry(new ZipEntry(entryName));
+                    //read the file and write to ZipOutputStream
+                    FileInputStream fis = new FileInputStream(filePath);
+                    byte[] buffer = new byte[1024];
+                    int len;
 
-		    zos.closeEntry();
-		    fis.close();
-		}
+                    while ((len = fis.read(buffer)) > 0) {
+                        zos.write(buffer, 0, len);
+                    }
+
+                    zos.closeEntry();
+                    fis.close();
+                }
             }
             zos.close();
             fos.close();
@@ -80,39 +85,40 @@ public class ZipFiles {
      */
     private static List<String> populateFilesList(File dir) throws IOException {
         List<String> result = new ArrayList<>();
-	Stack<File> stack = new Stack<>();
-	stack.push(dir);
+        Stack<File> stack = new Stack<>();
+        stack.push(dir);
 
         //File[] files = dir.listFiles();
-	
-	//List<String> fileNames = Arrays.stream(files).map(file -> file.getName()).collect(Collectors.toList());
-	//System.out.printf("%s\n", fileNames.toString());
-	
-	while (!stack.isEmpty()) {
-	    File currentDir = stack.pop();
-	    File[] files = currentDir.listFiles();
 
-	    if (currentDir.isDirectory()) {
-		result.add(currentDir.getAbsolutePath());
-	    }
+        //List<String> fileNames = Arrays.stream(files).map(file -> file.getName()).collect(Collectors.toList());
+        //System.out.printf("%s\n", fileNames.toString());
 
-	    if (files != null) {
-		for (File file : files) {
-		    if (file.isFile()) {
-			result.add(file.getAbsolutePath());;
-		    } else {
-			// not a  file == is a directory
-			stack.push(file);
-		    }
-		}
-	    }
-	}
+        while (!stack.isEmpty()) {
+            File currentDir = stack.pop();
+            File[] files = currentDir.listFiles();
+
+            if (currentDir.isDirectory()) {
+                result.add(currentDir.getAbsolutePath());
+            }
+
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        result.add(file.getAbsolutePath());
+                        ;
+                    } else {
+                        // not a  file == is a directory
+                        stack.push(file);
+                    }
+                }
+            }
+        }
 
         return result;
     }
 
     public static void unzip(String zipFilePath, String destDir) {
-	System.out.printf("ZF.unzip() - zipFile=%s, destDir=%s\n", zipFilePath, destDir);
+        System.out.printf("ZF.unzip() - zipFile=%s, destDir=%s\n", zipFilePath, destDir);
 
         File dir = new File(destDir);
         // create output directory if it doesn't exist
@@ -131,24 +137,24 @@ public class ZipFiles {
                 String fileName = ze.getName();
                 File newFile = new File(destDir + File.separator + fileName);
 
-		if (ze.isDirectory()) {
-		    if (!newFile.exists()) {
-			newFile.mkdirs();
-		    }
-		} else {
-		    File parentDir = newFile.getParentFile();
+                if (ze.isDirectory()) {
+                    if (!newFile.exists()) {
+                        newFile.mkdirs();
+                    }
+                } else {
+                    File parentDir = newFile.getParentFile();
 
-		    if (parentDir != null && !parentDir.exists()) {
-			parentDir.mkdirs();
-		    }
+                    if (parentDir != null && !parentDir.exists()) {
+                        parentDir.mkdirs();
+                    }
 
-		    try (FileOutputStream fos = new FileOutputStream(newFile)) {
-			int len;
-			while ((len = zis.read(buffer)) > 0) {
-			    fos.write(buffer, 0, len);
-			}
-		    } 
-		}
+                    try (FileOutputStream fos = new FileOutputStream(newFile)) {
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
 
                 zis.closeEntry();
                 ze = zis.getNextEntry();

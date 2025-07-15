@@ -79,7 +79,7 @@ public class ChainRequestPacket extends ChainPacket
     private InetSocketAddress listenSocketAddress;
 
     public ChainRequestPacket(long reqID, String value, boolean stop,
-                              ChainRequestPacket req){
+                              ChainRequestPacket req) {
 
         super(req);
         this.packetType = ChainPacketType.REQUEST;
@@ -88,7 +88,7 @@ public class ChainRequestPacket extends ChainPacket
         this.requestValue = value;
         this.stop = stop;
 
-        if(req == null)
+        if (req == null)
             return;
 
         this.entryReplica = req.entryReplica;
@@ -98,7 +98,7 @@ public class ChainRequestPacket extends ChainPacket
         this.listenSocketAddress = req.listenSocketAddress;
     }
 
-    public ChainRequestPacket(long reqID, String value, boolean stop){
+    public ChainRequestPacket(long reqID, String value, boolean stop) {
         this(reqID, value, stop, (ChainRequestPacket) null);
     }
 
@@ -122,12 +122,12 @@ public class ChainRequestPacket extends ChainPacket
         int cport = (int) bbuf.getShort();
         cport = cport >= 0 ? cport : cport + 2 * (Short.MAX_VALUE + 1);
         this.clientSocketAddress = cport != 0 ? new InetSocketAddress(
-                InetAddress.getByAddress(clientAddressBytes), cport): null;
+                InetAddress.getByAddress(clientAddressBytes), cport) : null;
 
         byte[] listenAddressBytes = new byte[4];
         bbuf.get(listenAddressBytes);
         int lport = (int) bbuf.getShort();
-        lport = lport >= 0 ? lport : lport + 2* (Short.MAX_VALUE + 1);
+        lport = lport >= 0 ? lport : lport + 2 * (Short.MAX_VALUE + 1);
         this.listenSocketAddress = lport != 0 ? new InetSocketAddress(
                 InetAddress.getByAddress(listenAddressBytes), lport) : null;
 
@@ -138,7 +138,7 @@ public class ChainRequestPacket extends ChainPacket
         this.requestValue = new String(valBytes, CHARSET);
 
         int respLength = bbuf.getInt();
-        if (respLength>0) {
+        if (respLength > 0) {
             byte[] respBytes = new byte[respLength];
             bbuf.get(respBytes);
             this.responseValue = new String(respBytes, CHARSET);
@@ -161,10 +161,10 @@ public class ChainRequestPacket extends ChainPacket
             int exactLength = bbuf.position();
 
             bbuf.putLong(this.requestID);
-            bbuf.put(this.stop? (byte) 1: (byte) 0);
+            bbuf.put(this.stop ? (byte) 1 : (byte) 0);
             bbuf.putInt(this.entryReplica);
 
-            exactLength += (Long.BYTES+1+ Integer.BYTES);
+            exactLength += (Long.BYTES + 1 + Integer.BYTES);
 
             // addresses
             /* Note: 0 is ambiguous with wildcard address, but that's okay
@@ -188,7 +188,7 @@ public class ChainRequestPacket extends ChainPacket
             exactLength += 2 * (Integer.BYTES + Short.BYTES);
 
             // request value
-            byte[] reqValBytes = this.requestValue != null?
+            byte[] reqValBytes = this.requestValue != null ?
                     this.requestValue.getBytes(CHARSET) : new byte[0];
             bbuf.putInt(reqValBytes.length);
             bbuf.put(reqValBytes);
@@ -196,8 +196,8 @@ public class ChainRequestPacket extends ChainPacket
             exactLength += (Integer.BYTES + reqValBytes.length);
 
             //response value
-            byte[] respValBytes = this.responseValue != null?
-                    this.responseValue.getBytes(CHARSET): new byte[0];
+            byte[] respValBytes = this.responseValue != null ?
+                    this.responseValue.getBytes(CHARSET) : new byte[0];
             bbuf.putInt(respValBytes.length);
             bbuf.put(respValBytes);
             exactLength += (Integer.BYTES + respValBytes.length);
@@ -234,7 +234,7 @@ public class ChainRequestPacket extends ChainPacket
     private static int estimateSize() {
         int length = 0;
         try {
-            if (samplePacket == null){
+            if (samplePacket == null) {
                 samplePacket = new ChainRequestPacket(0, "", false);
                 samplePacket.putChainIDAndVersion("", 0);
                 samplePacket.setClientSocketAddress(new InetSocketAddress("0.0.0.0", 0));
@@ -259,9 +259,9 @@ public class ChainRequestPacket extends ChainPacket
         System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! getResponse is called!!!!!!!!!!!!");
 
         ChainRequestPacket reply = new ChainRequestPacket(this.requestID,
-                    RequestPacket.ResponseCodes.ACK.toString(), this.stop, this);
-            System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Response value is "+responseValue+"!!!!!!!!!!!!");
-            reply.responseValue = this.responseValue;
+                RequestPacket.ResponseCodes.ACK.toString(), this.stop, this);
+        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Response value is " + responseValue + "!!!!!!!!!!!!");
+        reply.responseValue = this.responseValue;
 
 
         return reply;
@@ -288,7 +288,7 @@ public class ChainRequestPacket extends ChainPacket
     }
 
     @Override
-    public InetSocketAddress getClientAddress(){
+    public InetSocketAddress getClientAddress() {
         return this.clientSocketAddress;
     }
 
@@ -307,7 +307,7 @@ public class ChainRequestPacket extends ChainPacket
     }
 
     /************************** Setters ****************************/
-    public void setPacketType(ChainPacketType packetType){
+    public void setPacketType(ChainPacketType packetType) {
         this.packetType = packetType;
     }
 
@@ -316,11 +316,11 @@ public class ChainRequestPacket extends ChainPacket
         this.version = version;
     }
 
-    public void setClientSocketAddress(InetSocketAddress socketAddress){
+    public void setClientSocketAddress(InetSocketAddress socketAddress) {
         this.clientSocketAddress = socketAddress;
     }
 
-    public void setListenSocketAddress(InetSocketAddress socketAddress){
+    public void setListenSocketAddress(InetSocketAddress socketAddress) {
         this.listenSocketAddress = socketAddress;
     }
 
@@ -341,16 +341,16 @@ public class ChainRequestPacket extends ChainPacket
         json.put(Keys.STOP.toString(), this.stop);
         json.putOpt(Keys.RV.toString(), this.responseValue);
         json.put(Keys.FWDR.toString(), this.entryReplica);
-        if(this.clientSocketAddress != null)
+        if (this.clientSocketAddress != null)
             json.put(Keys.CA.toString(), this.clientSocketAddress);
-        if(this.listenSocketAddress != null)
+        if (this.listenSocketAddress != null)
             json.put(Keys.LA.toString(), this.listenSocketAddress);
 
         return json;
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         try {
             return this.toJSONSmart().toString();
         } catch (JSONException e) {

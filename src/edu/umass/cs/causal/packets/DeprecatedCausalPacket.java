@@ -61,7 +61,7 @@ public class DeprecatedCausalPacket extends JSONPacket implements ReplicableRequ
         object.put("requestID", this.requestID);
         object.put("clientRequest",
                 this.clientRequest != null ?
-                this.clientRequest.toString() : "");
+                        this.clientRequest.toString() : "");
 
         return object;
     }

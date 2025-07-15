@@ -15,238 +15,242 @@ import edu.umass.cs.utils.Util;
 
 /**
  * @author arun
- *
- *         A class like this is needed only if the app wants to use request
- *         types other than RequestPacket, which is generally useful only if the
- *         app wants to coordinate only some request types using consensus but
- *         process other requests locally at replicas. For using just gigapaxos
- *         to implement linearizability, i.e., coordinating all requests via
- *         consensus, this class is unnecessary. Applications can simply
- *         encapsulate requests as {@link RequestPacket}; doing so will also
- *         be slightly more efficient than using app-specific request types.
+ * <p>
+ * A class like this is needed only if the app wants to use request
+ * types other than RequestPacket, which is generally useful only if the
+ * app wants to coordinate only some request types using consensus but
+ * process other requests locally at replicas. For using just gigapaxos
+ * to implement linearizability, i.e., coordinating all requests via
+ * consensus, this class is unnecessary. Applications can simply
+ * encapsulate requests as {@link RequestPacket}; doing so will also
+ * be slightly more efficient than using app-specific request types.
  */
 public class PaxosAppRequest extends JSONPacket implements
-		ReplicableRequest, ClientRequest {
+        ReplicableRequest, ClientRequest {
 
-	/**
-	 * Packet type class for example application requests.
-	 */
-	public enum PacketType implements IntegerPacketType {
-		/**
-		 * Default coordinated app request.
-		 */
-		COORDINATED_WRITE(401),
-		/**
-		 * Uncoordinated app request.
-		 */
-		LOCAL_READ(402), ;
+    /**
+     * Packet type class for example application requests.
+     */
+    public enum PacketType implements IntegerPacketType {
+        /**
+         * Default coordinated app request.
+         */
+        COORDINATED_WRITE(401),
+        /**
+         * Uncoordinated app request.
+         */
+        LOCAL_READ(402),
+        ;
 
-		/******************************** BEGIN static ***********************/
-		private static HashMap<Integer, PacketType> numbers = new HashMap<Integer, PacketType>();
+        /******************************** BEGIN static ***********************/
+        private static HashMap<Integer, PacketType> numbers = new HashMap<Integer, PacketType>();
 
-		static {
-			for (PacketType type : PacketType.values()) {
-				if (!PacketType.numbers.containsKey(type.number)) {
-					PacketType.numbers.put(type.number, type);
-				} else {
-					String error = "Duplicate or inconsistent enum type";
-					assert (false) : error;
-					throw new RuntimeException(error);
-				}
-			}
-		}
+        static {
+            for (PacketType type : PacketType.values()) {
+                if (!PacketType.numbers.containsKey(type.number)) {
+                    PacketType.numbers.put(type.number, type);
+                } else {
+                    String error = "Duplicate or inconsistent enum type";
+                    assert (false) : error;
+                    throw new RuntimeException(error);
+                }
+            }
+        }
 
-		/**
-		 * @param type
-		 * @return PacketType from int type.
-		 */
-		public static PacketType getPacketType(int type) {
-			return PacketType.numbers.get(type);
-		}
+        /**
+         * @param type
+         * @return PacketType from int type.
+         */
+        public static PacketType getPacketType(int type) {
+            return PacketType.numbers.get(type);
+        }
 
-		/********************************** END static ***********************/
+        /********************************** END static ***********************/
 
-		private final int number;
+        private final int number;
 
-		PacketType(int t) {
-			this.number = t;
-		}
+        PacketType(int t) {
+            this.number = t;
+        }
 
-		@Override
-		public int getInt() {
-			return this.number;
-		}
-	}
+        @Override
+        public int getInt() {
+            return this.number;
+        }
+    }
 
-	/**
-	 *
-	 */
-	public enum Keys {
-		SERVICE_NAME, EPOCH, REQUEST_ID, REQUEST_VALUE, STOP, IS_COORDINATION, CLIENT_ADDRESS, ACK, RESPONSE_VALUE
-	};
+    /**
+     *
+     */
+    public enum Keys {
+        SERVICE_NAME, EPOCH, REQUEST_ID, REQUEST_VALUE, STOP, IS_COORDINATION, CLIENT_ADDRESS, ACK, RESPONSE_VALUE
+    }
 
-	// name of the replicated state machine
-	private final String name;
+    ;
 
-	// epoch number (nonzero if reconfigured)
-	private final int epoch;
+    // name of the replicated state machine
+    private final String name;
 
-	// request identifier
-	private final long requestID;
+    // epoch number (nonzero if reconfigured)
+    private final int epoch;
 
-	// request value
-	private final String value;
+    // request identifier
+    private final long requestID;
 
-	// Whether this request should stop the RSM, which can
-	// be used to delete the RSM entirely.
-	private final boolean stop;
+    // request value
+    private final String value;
 
-	// to return when getResponse is invoked
-	private String response = null;
+    // Whether this request should stop the RSM, which can
+    // be used to delete the RSM entirely.
+    private final boolean stop;
 
-
-	/**
-	 * @param name
-	 * @param epoch
-	 * @param id
-	 * @param value
-	 * @param type
-	 * @param stop
-	 */
-	public PaxosAppRequest(String name, int epoch, long id, String value,
-						   IntegerPacketType type, boolean stop) {
-		super(type);
-		this.name = name;
-		this.epoch = epoch;
-		this.requestID = id;
-		this.stop = stop;
-		this.value = value;
-	}
-
-	/**
-	 * @param name
-	 * @param value
-	 * @param type
-	 */
-	public PaxosAppRequest(String name, String value, IntegerPacketType type) {
-		this(name,value, type,false);
-	}
-
-	/**
-	 * @param name
-	 * @param value
-	 * @param type
-	 * @param stop
-	 */
-	public PaxosAppRequest(String name, String value, IntegerPacketType type,
-						   boolean stop) {
-		this(name, 0, (long) (Math.random() * Long.MAX_VALUE), value, type,
-				stop);
-	}
-
-	/**
-	 * @param name
-	 * @param id
-	 * @param value
-	 * @param type
-	 * @param stop
-	 */
-	public PaxosAppRequest(String name, long id, String value,
-						   IntegerPacketType type, boolean stop) {
-		this(name, 0, id, value, type, stop);
-	}
+    // to return when getResponse is invoked
+    private String response = null;
 
 
-	/**
-	 * @param json
-	 * @throws JSONException
-	 */
-	public PaxosAppRequest(JSONObject json) throws JSONException {
-		super(json);
-		this.name = json.getString(Keys.SERVICE_NAME.toString());
-		this.epoch = json.getInt(Keys.EPOCH.toString());
-		this.requestID = json.getLong(Keys.REQUEST_ID.toString());
-		this.stop = json.getBoolean(Keys.STOP.toString());
-		this.value = json.getString(Keys.REQUEST_VALUE.toString());
+    /**
+     * @param name
+     * @param epoch
+     * @param id
+     * @param value
+     * @param type
+     * @param stop
+     */
+    public PaxosAppRequest(String name, int epoch, long id, String value,
+                           IntegerPacketType type, boolean stop) {
+        super(type);
+        this.name = name;
+        this.epoch = epoch;
+        this.requestID = id;
+        this.stop = stop;
+        this.value = value;
+    }
 
-		this.response = json.has(Keys.RESPONSE_VALUE.toString()) ? json
-				.getString(Keys.REQUEST_VALUE.toString()) : null;
-	}
+    /**
+     * @param name
+     * @param value
+     * @param type
+     */
+    public PaxosAppRequest(String name, String value, IntegerPacketType type) {
+        this(name, value, type, false);
+    }
 
-	@Override
-	public IntegerPacketType getRequestType() {
-		return PacketType.getPacketType(this.type);
-	}
+    /**
+     * @param name
+     * @param value
+     * @param type
+     * @param stop
+     */
+    public PaxosAppRequest(String name, String value, IntegerPacketType type,
+                           boolean stop) {
+        this(name, 0, (long) (Math.random() * Long.MAX_VALUE), value, type,
+                stop);
+    }
 
-	@Override
-	public String getServiceName() {
-		return this.name;
-	}
+    /**
+     * @param name
+     * @param id
+     * @param value
+     * @param type
+     * @param stop
+     */
+    public PaxosAppRequest(String name, long id, String value,
+                           IntegerPacketType type, boolean stop) {
+        this(name, 0, id, value, type, stop);
+    }
 
-	/**
-	 * @return Request value.
-	 */
-	public String getValue() {
-		return this.value;
-	}
 
-	/**
-	 * @return Unique request ID.
-	 */
-	public long getRequestID() {
-		return this.requestID;
-	}
+    /**
+     * @param json
+     * @throws JSONException
+     */
+    public PaxosAppRequest(JSONObject json) throws JSONException {
+        super(json);
+        this.name = json.getString(Keys.SERVICE_NAME.toString());
+        this.epoch = json.getInt(Keys.EPOCH.toString());
+        this.requestID = json.getLong(Keys.REQUEST_ID.toString());
+        this.stop = json.getBoolean(Keys.STOP.toString());
+        this.value = json.getString(Keys.REQUEST_VALUE.toString());
 
-	public JSONObject toJSONObjectImpl() throws JSONException {
-		JSONObject json = new JSONObject();
-		json.put(Keys.SERVICE_NAME.toString(), this.name);
-		json.put(Keys.EPOCH.toString(), this.epoch);
-		json.put(Keys.REQUEST_ID.toString(), this.requestID);
-		json.put(Keys.STOP.toString(), this.stop);
-		json.put(Keys.REQUEST_VALUE.toString(), this.value);
-		json.putOpt(Keys.RESPONSE_VALUE.toString(), this.response);
-		return json;
-	}
+        this.response = json.has(Keys.RESPONSE_VALUE.toString()) ? json
+                .getString(Keys.REQUEST_VALUE.toString()) : null;
+    }
 
-	@Override
-	public boolean needsCoordination() {
-		return this.getRequestType().equals
-				(PacketType.LOCAL_READ) ? false : true;
-	}
+    @Override
+    public IntegerPacketType getRequestType() {
+        return PacketType.getPacketType(this.type);
+    }
 
-	@Override
-	public ClientRequest getResponse() {
-		return new PaxosAppRequest(this.name, this.epoch, this.requestID,
-				this.response==null ? Keys.ACK.toString() : this.response, PacketType
-				.getPacketType(type), this.stop);
-	}
+    @Override
+    public String getServiceName() {
+        return this.name;
+    }
 
-	/**
-	 * @param response
-	 */
-	public PaxosAppRequest setResponse(String response) {
-		this.response = response;
-		return this;
-	}
+    /**
+     * @return Request value.
+     */
+    public String getValue() {
+        return this.value;
+    }
 
-	/**
-	 * Simple check to ensure that stringification and back yields the
-	 * original request.
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		PaxosAppRequest request = new PaxosAppRequest("name1", 0, 0,
-				"request1", PaxosAppRequest.PacketType.COORDINATED_WRITE,
-				false);
-		System.out.println(request);
-		try {
-			PaxosAppRequest request2 = (new PaxosAppRequest(
-					request.toJSONObject()));
-			assert (request.toString().equals(request2.toString()));
-			System.out.println("SUCCESS");
-		} catch (JSONException je) {
-			je.printStackTrace();
-		}
-	}
+    /**
+     * @return Unique request ID.
+     */
+    public long getRequestID() {
+        return this.requestID;
+    }
+
+    public JSONObject toJSONObjectImpl() throws JSONException {
+        JSONObject json = new JSONObject();
+        json.put(Keys.SERVICE_NAME.toString(), this.name);
+        json.put(Keys.EPOCH.toString(), this.epoch);
+        json.put(Keys.REQUEST_ID.toString(), this.requestID);
+        json.put(Keys.STOP.toString(), this.stop);
+        json.put(Keys.REQUEST_VALUE.toString(), this.value);
+        json.putOpt(Keys.RESPONSE_VALUE.toString(), this.response);
+        return json;
+    }
+
+    @Override
+    public boolean needsCoordination() {
+        return this.getRequestType().equals
+                (PacketType.LOCAL_READ) ? false : true;
+    }
+
+    @Override
+    public ClientRequest getResponse() {
+        return new PaxosAppRequest(this.name, this.epoch, this.requestID,
+                this.response == null ? Keys.ACK.toString() : this.response, PacketType
+                .getPacketType(type), this.stop);
+    }
+
+    /**
+     * @param response
+     */
+    public PaxosAppRequest setResponse(String response) {
+        this.response = response;
+        return this;
+    }
+
+    /**
+     * Simple check to ensure that stringification and back yields the
+     * original request.
+     *
+     * @param args
+     */
+    public static void main(String[] args) {
+        PaxosAppRequest request = new PaxosAppRequest("name1", 0, 0,
+                "request1", PaxosAppRequest.PacketType.COORDINATED_WRITE,
+                false);
+        System.out.println(request);
+        try {
+            PaxosAppRequest request2 = (new PaxosAppRequest(
+                    request.toJSONObject()));
+            assert (request.toString().equals(request2.toString()));
+            System.out.println("SUCCESS");
+        } catch (JSONException je) {
+            je.printStackTrace();
+        }
+    }
 
 }
