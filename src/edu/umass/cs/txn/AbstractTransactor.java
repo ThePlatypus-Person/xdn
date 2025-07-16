@@ -122,10 +122,6 @@ public abstract class AbstractTransactor<NodeIDType> extends
     @Override
     public boolean createReplicaGroup(String serviceName, int epoch,
                                       String state, Set<NodeIDType> nodes, String placementMetadata) {
-
-	System.out.printf("AT.createReplicaGroup() - service=%s, coordinator=%s\n", 
-	    serviceName, this.coordinator.getClass().getSimpleName());
-
         return this.coordinator.createReplicaGroup(serviceName, epoch, state,
                 nodes, placementMetadata);
     }

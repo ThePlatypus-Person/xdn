@@ -644,7 +644,6 @@ public class SQLReconfiguratorDB<NodeIDType> extends
     private synchronized void putReconfigurationRecord(
             ReconfigurationRecord<NodeIDType> rcRecord) {
         if (USE_DISK_MAP) {
-	    System.out.printf("SQLRDB DEBUG 11\n");
             this.rcRecords.put(rcRecord.getName(), rcRecord);
 	} else {
             this.putReconfigurationRecordDB(rcRecord,
@@ -823,8 +822,6 @@ public class SQLReconfiguratorDB<NodeIDType> extends
     @Override
     public synchronized ReconfigurationRecord<NodeIDType> createReconfigurationRecord(
             ReconfigurationRecord<NodeIDType> record) {
-
-	System.out.printf("SQLRDB.createReconfigurationRecord()\n");
         if (this.getReconfigurationRecord(record.getName()) != null)
             return null;
         log.log(Level.INFO,

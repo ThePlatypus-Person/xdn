@@ -34,7 +34,7 @@ public class TimedExecutedCallback implements ExecutedCallback {
     public void executed(Request executedRequest, boolean handled) {
         inner.executed(executedRequest, handled); // call original ExecutedCallback
 
-        /*
+	/*
         HttpRequest reqData = request.getHttpRequest();
         String reqInfo = String.format("[%s] %s - %s%s", 
             startTimestamp,
@@ -43,10 +43,8 @@ public class TimedExecutedCallback implements ExecutedCallback {
             reqData.uri()
         );
         System.out.println(reqInfo);
-        */
 
         // Print out time spent on each function.
-        /*
         long prev = startTime;
         for (Map.Entry<String, Long> entry : timeMarkers.entrySet()) {
             System.out.printf("%50s %6.3fs\n", 
@@ -55,14 +53,12 @@ public class TimedExecutedCallback implements ExecutedCallback {
             );
             prev = entry.getValue();
         }
-        */
 
-        /*
         long deltaTotal = System.nanoTime() - startTime;
         String duration = String.format("Total Duration: %.3fs", 
             deltaTotal / 1000_000_000.0
         );
         System.out.println(duration);
-        */
+	*/
     }
 }

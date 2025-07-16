@@ -765,7 +765,9 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         assert groupName != null && !groupName.isEmpty();
         assert placementMetadata != null && !placementMetadata.isEmpty();
 
-        System.out.println("\t\tPBM.initializePrimaryEpoch() - initialize with placement metadata " + placementMetadata);
+        System.out.printf("\t\t%s:PBM.initializePrimaryEpoch(epoch=%s) - initialize with placement metadata %s", 
+	    myNodeID, placementEpoch, placementMetadata);
+
         this.currentRole.put(groupName, Role.BACKUP);
 
         // attempts to parse the metadata
@@ -793,6 +795,8 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                 throw new RuntimeException(e);
             }
 
+            this.paxosManager.tryToBePaxosCoordinator(groupName);
+
             Map<String, InetAddress> ipAddresses = new HashMap<>();
             NodeConfig<NodeIDType> initNodeConfig = this.messenger.getNodeConfig();
             nodes.forEach(node -> ipAddresses.put(
@@ -801,10 +805,10 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             ));
 
             System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
-            // PrimaryEpoch<NodeIDType> zero = new PrimaryEpoch<>(myNodeID, 0);
             PrimaryEpoch<NodeIDType> epoch = new PrimaryEpoch<>(myNodeID, placementEpoch);
             this.currentRole.put(groupName, Role.PRIMARY_CANDIDATE);
             this.currentPrimaryEpoch.put(groupName, epoch);
+	    
             StartEpochPacket startPacket = new StartEpochPacket(groupName, epoch);
             this.paxosManager.propose(
                     groupName,
@@ -835,8 +839,6 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
                     }
             );
-
-            this.paxosManager.tryToBePaxosCoordinator(groupName);
 
         }
 
@@ -941,13 +943,6 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
     // TODO: also handle deletion of PBInstance with placement epoch
     public boolean deletePrimaryBackupInstance(String groupName, int placementEpoch) {
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-        System.out.printf(">> %s:PbManager deletePrimaryBackupInstance name=%s epoch=%d\n\tat %s\n",
-                this.myNodeID, groupName, placementEpoch, stackTraceString);
         boolean isPaxosStopped = this.paxosManager.
                 deleteStoppedPaxosInstance(groupName, placementEpoch);
         if (!isPaxosStopped) {

@@ -127,7 +127,6 @@ public class RepliconfigurableReconfiguratorDB<NodeIDType> extends
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
-        System.out.printf("%s:RRDB.coordinateRequest()\n", this.messenger.getMyID());
         String rcGroupName = this.getRCGroupName(request.getServiceName());
         // can only send stop request to own RC group
         if (!rcGroupName.equals(request.getServiceName())
@@ -142,9 +141,6 @@ public class RepliconfigurableReconfiguratorDB<NodeIDType> extends
             rcGroupName = request.getServiceName();
         }
 
-
-        System.out.printf("%s:RRDB.coordinateRequest() - call super(paxosGroupID=%s)\n", 
-	    this.messenger.getMyID(), rcGroupName);
         return super.coordinateRequest(rcGroupName, request, callback);
     }
 

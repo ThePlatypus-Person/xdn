@@ -114,14 +114,7 @@ public class WaitAckStartEpoch<NodeIDType>
          *
          * Should send startEpoch only to self in case of merge operations.
          */
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-	System.out.printf("=========> Stack Trace: WASE.start() :\n\tat %s", 
-	    stackTraceString
-	);
+	System.out.printf("WASE.start()\n");
 
         assert (!this.startEpoch.isMerge() || this.startEpoch.curEpochGroup
                 .contains(this.DB.getMyID()));

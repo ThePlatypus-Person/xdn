@@ -187,14 +187,7 @@ public class WaitAckStopEpoch<NodeIDType>
         }
 
         NodeIDType nextNode = getNextNode();
-
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-	System.out.printf("WASE.start() - nextNode = %s\n\tat %s\n", 
-		nextNode, stackTraceString);
+	System.out.printf("WASE.start(nextNode=%s)\n", nextNode);
 
         log.log(Level.INFO, "{0} sending {1} to {2}", new Object[]{this,
                 this.stopEpoch.getSummary(), nextNode});

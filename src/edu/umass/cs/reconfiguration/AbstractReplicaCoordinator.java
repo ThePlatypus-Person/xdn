@@ -237,10 +237,6 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
     @SuppressWarnings("deprecation")
     // only for backwards compatibility
     protected boolean handleIncoming(Request request, ExecutedCallback callback) {
-
-        System.out.printf("%s:ARC:handleIncoming()\n", 
-	    this.messenger.getMyID());
-
         // Mark for time logging
         if (callback instanceof TimedExecutedCallback timed) {
             timed.mark("AbstractReplicaCoordinator.handleIncoming()");
@@ -310,15 +306,9 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
     public boolean execute(Request request, boolean noReplyToClient,
                            ExecutedCallback requestCallback) {
         if (this.callback != null && this.callback.preExecuted(request)) {
-	    System.out.printf("%s.ARC.execute(callback=%s) - this.callback.preExecuted()\n", this.messenger.getMyID(), requestCallback.toString());
             // no further execution
             return true;
         }
-
-	System.out.printf("%s.ARC.execute() - app=%s, callback=%s\n", 
-	    this.messenger.getMyID(), 
-	    this.app.getClass().getSimpleName(), 
-	    (requestCallback == null) ? "null" : requestCallback.toString());
 
         boolean handled = request.getRequestType() == ReconfigurationPacket.PacketType.NO_TYPE ||
                 (((this.app instanceof Replicable) ? ((Replicable) (this.app))

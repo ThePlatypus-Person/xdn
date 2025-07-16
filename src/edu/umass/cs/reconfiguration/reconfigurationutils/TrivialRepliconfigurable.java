@@ -50,7 +50,6 @@ public class TrivialRepliconfigurable implements Repliconfigurable, AppRequestPa
 
     @Override
     public boolean execute(Request request) {
-	System.out.printf("TR.execute()\n");
         return this.app.execute(request);
     }
 
@@ -81,9 +80,6 @@ public class TrivialRepliconfigurable implements Repliconfigurable, AppRequestPa
     @Override
     public boolean execute(Request request,
                            boolean doNotReplyToClient) {
-	System.out.printf("TR.execute(noReplyToClient) - app=%s\n",
-	    this.app.getClass().getSimpleName());
-
         return (this.app instanceof Replicable ?
                 ((Replicable) this.app).execute(request, doNotReplyToClient) :
                 this.app.execute(request));

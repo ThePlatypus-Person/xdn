@@ -154,8 +154,6 @@ public abstract class AbstractReconfiguratorDB<NodeIDType> implements
         boolean handled = false;
         // cast checked by assert above
 
-	System.out.printf("%s:ARDB.execute(noReplyToClient)\n", this.myID);
-
         @SuppressWarnings("unchecked")
         BasicReconfigurationPacket<NodeIDType> rcPacket =
                 (BasicReconfigurationPacket<NodeIDType>) request;
@@ -171,9 +169,6 @@ public abstract class AbstractReconfiguratorDB<NodeIDType> implements
     protected static final Object autoInvokeMethod(Object target,
                                                    BasicReconfigurationPacket<?> rcPacket, boolean recovery,
                                                    Stringifiable<?> unstringer) {
-	System.out.printf("ARDB.autoInvokeMethod(type=%s)\n", 
-	    rcPacket.getType().toString());
-
         try {
             return target
                     .getClass()
@@ -332,7 +327,6 @@ public abstract class AbstractReconfiguratorDB<NodeIDType> implements
 
         boolean handled = false;
         if (rcRecReq.isReconfigurationIntent()) {
-	    System.out.printf("ARDB DEBUG 7 - batched=%s\n", rcRecReq.startEpoch.isBatchedCreate() ? "true" : "false");
             // READY -> WAIT_ACK_STOP
             log.log(Level.FINE,
                     "{0} received {1}; changing state {2} {3} {4} -> {5} {6} {7}",
@@ -436,7 +430,6 @@ public abstract class AbstractReconfiguratorDB<NodeIDType> implements
                 handled ? "successfully handled" : "turned into a noop",
                 rcRecReq.getSummary(), record.getSummary()});
 
-	System.out.printf("ARDB DEBUG 12\n");
         if (handled
                 && (rcRecReq.isReconfigurationComplete() || rcRecReq
                 .isReconfigurationMerge())

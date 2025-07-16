@@ -165,15 +165,15 @@ public class PaxosManager<NodeIDType> {
             synchronized (this.requests) {
                 // Logging
                 String logOutput = String.format(
-                        "%s:PM.Outstanding.enqueue(myID=%s) - putIfAbsent(clientAddr=%s), entryReplica=%d, requests=%s\n",
+                        "%s:PM.Outstanding.enqueue(myID=%s).putIfAbsent() - requests=%s\n",
                         messenger.getMyID(),
                         myID,
                         ((rc.requestPacket.getClientAddress() == null) ? "null"
                                 : rc.requestPacket.getClientAddress().toString()),
                         rc.requestPacket.getEntryReplica(),
-                        this.requests.keySet()
+			this.requests.keySet()
                 );
-                //System.out.print(logOutput);
+                System.out.print(logOutput);
 
 		/*
 		StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
@@ -225,7 +225,7 @@ public class PaxosManager<NodeIDType> {
                         rcCallbackIsNull, "rc.callback == null",
                         runningProcess
                 );
-                System.out.print(logOutput);
+                //System.out.print(logOutput);
             }
             this.lastIncremented = System.currentTimeMillis();
         }
@@ -234,36 +234,16 @@ public class PaxosManager<NodeIDType> {
         private RequestAndCallback dequeue(RequestPacket request) {
             RequestAndCallback queued = this.requests.get(request.requestID);
 
-            String logOutput = String.format(
-                    "%s:PM.Outstanding.dequeue(myID=%s, requestID=%d) - entryReplica=%d\n",
-                    messenger.getMyID(), myID, request.requestID, request.getEntryReplica()
-            );
-            //System.out.print(logOutput);
+	    System.out.printf("%s:PM.Outstanding.dequeue(myID=%s, requestID=%d) - entryReplica=%d\n",
+		    messenger.getMyID(), myID, request.requestID, request.getEntryReplica());
+
 
             Boolean queuedNull = (queued == null);
-            logOutput = String.format("%s\t>> [%b] %s\n", logOutput,
-                    queuedNull, "queued == null"
-            );
-
-            // System.out.println("dequeue() calls queued.requestPacket.equals()");
             Boolean queuedEqualsRequest = queued.requestPacket.equals(request);
-            logOutput = String.format("%s\t>> [%b] %s\n\t>> %s = %s\n\t>> %s = %s\n", logOutput,
-                    queuedEqualsRequest, "queued.requestPacket.equals(request)",
-                    "queued.clientAddress", ((queued.requestPacket.getClientAddress() == null) ? "null" : queued.requestPacket.getClientAddress().toString()),
-                    "request.clientAddress", ((request.getClientAddress() == null) ? "null" : request.getClientAddress().toString())
-            );
 
             if (!queuedNull && queuedEqualsRequest) {
-                logOutput = String.format("%s\t>> [RUN] %s\n", logOutput,
-                        "requests.remove(request.requestID)"
-                );
-                System.out.print(logOutput);
                 return this.requests.remove(request.requestID);
             } else {
-                logOutput = String.format("%s\t>> [RUN] %s\n", logOutput,
-                        "conflictIDRequests.remove(request)"
-                );
-                System.out.print(logOutput);
                 return this.conflictIDRequests.remove(request);
             }
         }
@@ -349,29 +329,9 @@ public class PaxosManager<NodeIDType> {
     // called by PaxosInstanceStateMachine as execute callback
     protected boolean executed(RequestPacket requestPacket, Request request,
                                boolean sendResponse) {
-	/*
-	System.out.printf(
-	    "%s:PM.executed(myID=%d, entryReplica=%d)\n", 
-	    this.getNodeID(), myID, requestPacket.getEntryReplica()
-	);
-	*/
-
-        // PaxosConfig.log.log(Level.INFO, String.format("PaxosManager.executed(myID=%d, sendResponse=%b)", myID, sendResponse));
-
-        //System.out.println("[]==[] executed() calls dequeue()");
-
         RequestAndCallback rc = this.outstanding.dequeue(requestPacket);
         Boolean rcIsNull = (rc == null);
         Boolean cbIsNull = !rcIsNull && (rc.callback == null);
-
-        String statusLog = String.format(
-                "[]==[] Back to executed() from dequeue()\n\t>> [%b] rc == null\n\t>> [%b] rc.callback == null\n\t>> [RUN] %s\n",
-                rcIsNull,
-                cbIsNull,
-                (!rcIsNull && !cbIsNull) ? "rc.callback.executed()" : "this.defaultCallback()"
-        );
-
-        System.out.println(statusLog);
 
         if (rc != null)
             this.outstanding.totalRequestSize -= rc.requestPacket.lengthEstimate();
@@ -789,11 +749,6 @@ public class PaxosManager<NodeIDType> {
             String paxosID, int version, Set<NodeIDType> gms, Replicable app,
             String initialState, HotRestoreInfo hri, boolean tryRestore,
             boolean missedBirthing) {
-
-	System.out.printf("%s:PM.createPaxosInstanceFinal(paxosID=%s)\n", 
-	    this.messenger.getMyID(),
-	    paxosID
-	);
 
 	/*
         StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
@@ -1290,16 +1245,6 @@ public class PaxosManager<NodeIDType> {
         if (this.isClosed()) {
             return null;
         }
-
-        String logOutput = String.format(
-                "%s:PM.propose(myID=%s, clientAddr=%s, entry=%d)\n",
-                messenger.getMyID(),
-                this.myID,
-                ((requestPacket.getClientAddress() == null) ? "null"
-                        : requestPacket.getClientAddress().toString()),
-                requestPacket.getEntryReplica()
-        );
-        System.out.print(logOutput);
 
         boolean matched = false;
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
@@ -1992,14 +1937,6 @@ public class PaxosManager<NodeIDType> {
         long initTime = System.currentTimeMillis();
         PaxosConfig.log.log(Level.INFO, "{0} beginning to recover checkpoints",
                 new Object[]{this});
-
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        String stackTraceString = Arrays.stream(stackTrace)
-                .skip(1) // Skip the top element (this method call itself)
-                .map(StackTraceElement::toString)
-                .collect(Collectors.joining("\n\tat "));
-        System.out.println("Stack Trace:\n\tat " + stackTraceString);
-
 
         while (this.paxosLogger.initiateReadCheckpoints(true))
             ; // acquires lock
@@ -2772,11 +2709,13 @@ public class PaxosManager<NodeIDType> {
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
         // if equal or higher instance exists
         if (pism != null && (pism.getVersion() - version >= 0)) {
-            System.out.printf("AR%d:PM.createPaxosInstanceForcibly(name=%s) - is equal or higher instance exists\n", myID, paxosID);
+            System.out.printf("%s:PM.createPaxosInstanceForcibly(name=%s, epoch=%d) - is equal or higher instance exists\n", 
+		this.messenger.getMyID(), version, paxosID);
             return true;
         }
 
-        System.out.printf("AR%d:PM.createPaxosInstanceForcibly(name=%s) - exsisting instance not found\n", myID, paxosID);
+        System.out.printf("%s:PM.createPaxosInstanceForcibly(name=%s) - Creating new PISM\n", 
+	    this.messenger.getMyID(), paxosID);
         if (pism != null && pism.getVersion() - version < 0) {
             PaxosConfig.log.log(Level.INFO,
                     "{0} forcibly killing {1} in order to create {2}:{3}",
@@ -3763,15 +3702,12 @@ public class PaxosManager<NodeIDType> {
     public void restartFromLastCheckpoint(String paxosID) {
         System.out.printf("%s:PM.restartFromLastCheckpoint() - paxosID=%s\n", messenger.getMyID(), paxosID);
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
-        System.out.printf("%s:PM.restartFromLastCheckpoint(1) - %s\n", messenger.getMyID(), (pism == null) ? "null" : pism.toString());
         if (pism == null) {
             return;
         }
 
         this.softCrash(pism);
-        System.out.printf("%s:PM.restartFromLastCheckpoint(2) - %s\n", messenger.getMyID(), (pism == null) ? "null" : pism.toString());
         pism = this.getInstance(paxosID);
-        System.out.printf("%s:PM.restartFromLastCheckpoint(3) - %s\n", messenger.getMyID(), (pism == null) ? "null" : pism.toString());
         assert pism != null : "failed to restart as pism is failed to be re-created";
         pism.poke(true);
     }

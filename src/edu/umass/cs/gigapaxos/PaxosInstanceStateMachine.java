@@ -1853,10 +1853,6 @@ public class PaxosInstanceStateMachine implements Keyable<String>, Pausable {
 
 		    if (app instanceof LargeCheckpointerWrappedApp) {
 			LargeCheckpointerWrappedApp wrappedApp = (LargeCheckpointerWrappedApp) app;
-			System.out.printf("%s:PISM.execute() - calling app.execute(classType=%s)\n", 
-			    paxosManager.getMyID(),
-			    wrappedApp.getReplicableApp().getClass().getSimpleName()
-			);
 		    }
 
                     executed = (requestPacket.requestValue

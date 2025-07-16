@@ -167,7 +167,6 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
     @Override
     public boolean coordinateRequest(Request request, ExecutedCallback callback)
             throws IOException, RequestParseException {
-        System.out.printf("%s:XRC:coordinateRequest()\n", this.myNodeID);
         long startProcessingTime = System.nanoTime();
 
         // gets service name and its coordinator

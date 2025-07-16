@@ -2094,15 +2094,6 @@ public class Reconfigurator<NodeIDType> implements
                                             String initialState, Map<String, String> nameStates,
                                             Map<NodeIDType, InetSocketAddress> newlyAddedNodes,
                                             ReconfigureUponActivesChange policy) {
-
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-        System.out.printf("%s:R:initiateReconfiguration()\n\tat %s\n", 
-	    this.messenger.getMyID(), stackTraceString);
-
         if (newActives == null)
             return false;
 
@@ -3882,13 +3873,6 @@ public class Reconfigurator<NodeIDType> implements
 
     @Override
     public ReconfiguratorRequest sendRequest(ReconfiguratorRequest request) {
-	StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	String stackTraceString = Arrays.stream(stackTrace)
-	.skip(1) // Skip the top element (this method call itself)
-	.map(StackTraceElement::toString)
-	.collect(Collectors.joining("\n\tat "));
-        System.out.printf("%s:R:sendRequest() \n\tat %s\n", this.messenger.getMyID(), stackTraceString);
-
         RequestCallbackFuture<ReconfiguratorRequest> callbackFuture;
         BasicReconfigurationPacket<?> packet = request instanceof ClientReconfigurationPacket ? (ClientReconfigurationPacket) request
                 : request instanceof ServerReconfigurationPacket ? (ServerReconfigurationPacket<?>) request

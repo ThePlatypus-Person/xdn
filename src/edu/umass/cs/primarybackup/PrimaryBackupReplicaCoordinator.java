@@ -115,11 +115,6 @@ public class PrimaryBackupReplicaCoordinator<NodeIDType>
         long startProcessingTime = System.nanoTime();
         ExecutedCallback chainedCallback = callback;
 
-        System.out.printf("%s:PBRC.coordinateRequest(service=%s)\n",
-                getMyID(),
-                request.getServiceName()
-        );
-
         // if packet comes from client (i.e., ReplicableClientRequest), wrap the
         // containing request with RequestPacket, and re-chain the callback.
         // Nvm, ReplicableClientRequest can contain other PrimaryBackupPacket :(

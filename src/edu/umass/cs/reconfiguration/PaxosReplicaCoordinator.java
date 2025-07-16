@@ -185,7 +185,6 @@ public class PaxosReplicaCoordinator<NodeIDType> extends
      */
     public boolean coordinateRequest(String paxosGroupID, Request request,
                                      ExecutedCallback callback) throws RequestParseException {
-        System.out.printf("%s:PRC.coordinateRequest()\n", this.messenger.getMyID());
         // prepare the updated callback that log the coordination duration
         long startProcessingTime = System.nanoTime();
 

@@ -94,7 +94,6 @@ public class JSONMessenger<NodeIDType> implements
         if (niot instanceof JSONMessenger)
             this.execpool = ((JSONMessenger<NodeIDType>) niot).execpool;
         else {
-            System.out.printf("JSONMessenger - Creating new ThreadPool(5)\n");
             this.execpool = Executors.newScheduledThreadPool(5,
                     new ThreadFactory() {
                         @Override

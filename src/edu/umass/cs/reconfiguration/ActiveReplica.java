@@ -899,10 +899,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     public GenericMessagingTask<NodeIDType, ?>[] handleStartEpoch(
             StartEpoch<NodeIDType> event,
             ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
-
-        System.out.printf("\t %s::AR.handleStartEpoch() - service=%s, epoch=%d\n", this.getMyID(), event.getServiceName(), event.getEpochNumber());
-        //System.out.printf("ActiveReplica.handleStartEpoch() - ID: %s AR: %s\n", this.getMyID(), this.nodeConfig.getActiveReplicasReadOnly().toString());
-
         StartEpoch<NodeIDType> startEpoch = ((StartEpoch<NodeIDType>) event);
         this.logEvent(event, Level.FINE);
         AckStartEpoch<NodeIDType> ackStart = new AckStartEpoch<NodeIDType>(
@@ -935,13 +931,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
             boolean created = false;
             try {
                 // createReplicaGroup is a local operation (but may fail)
-                //System.out.printf("ActiveReplica.handleStartEpoch().batchedCreate() - ID: %s\n", this.getMyID());
-                System.out.printf("%s::AR.handleStartEpoch(batchedCreate=%s) - service=%s, coordinator=%s\n", 
-		    this.getMyID(), 
-		    startEpoch.isBatchedCreate() ? "true" : "false",
-		    startEpoch.getServiceName(),
-		    this.appCoordinator.getClass().getSimpleName());
-
                 // For PBManager (temporary solution)
                 // Parse and validate the service's properties
                 final String validInitialStatePrefix = "xdn:init:";
@@ -1045,15 +1034,11 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     // synchronized to ensure atomic testAndStart property
     private synchronized void spawnWaitEpochFinalState(
             StartEpoch<NodeIDType> startEpoch) {
-        System.out.printf("%s::AR.spawnWaitEpochFinalState() - service=%s\n", this.getMyID(), startEpoch.getServiceName());
-
         WaitEpochFinalState<NodeIDType> waitFinal = new WaitEpochFinalState<NodeIDType>(
                 getMyID(), startEpoch, this.appCoordinator);
         if (!this.protocolExecutor.isRunning(waitFinal.getKey())) {
-            System.out.printf("%s::AR.spawnWaitEpochFinalState() - service=%s, PE.isRunning(false)\n", this.getMyID(), startEpoch.getServiceName());
             this.protocolExecutor.spawn(waitFinal);
         } else {
-            System.out.printf("%s::AR.spawnWaitEpochFinalState() - service=%s, PE.isRunning(true)\n", this.getMyID(), startEpoch.getServiceName());
             WaitEpochFinalState<NodeIDType> running = (WaitEpochFinalState<NodeIDType>) this.protocolExecutor
                     .getTask(waitFinal.getKey());
             if (running != null)
@@ -1072,8 +1057,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     public GenericMessagingTask<NodeIDType, ?>[] handleStopEpoch(
             StopEpoch<NodeIDType> stopEpoch,
             ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
-        System.out.printf("\t %s::AR.handleStopEpoch() - service=%s, epoch=%d\n", this.getMyID(), stopEpoch.getServiceName(), stopEpoch.getEpochNumber());
-
         this.logEvent(stopEpoch);
         if (this.stoppedOrMovedOn(stopEpoch))
             return this.sendAckStopEpoch(stopEpoch).toArray(); // still send ack
@@ -1245,8 +1228,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     public GenericMessagingTask<NodeIDType, ?>[] handleRequestEpochFinalState(
             RequestEpochFinalState<NodeIDType> event,
             ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
-        System.out.printf("\t %s::AR.handleRequestEpochFinalState() - service=%s, epoch=%d\n", this.getMyID(), event.getServiceName(), event.getEpochNumber());
-
         RequestEpochFinalState<NodeIDType> request = (RequestEpochFinalState<NodeIDType>) event;
         this.logEvent(event);
         StringContainer stateContainer = this.getFinalStateContainer(
