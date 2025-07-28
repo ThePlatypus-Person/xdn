@@ -135,10 +135,6 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         int copySnapshotRetCode = Shell.runCommand(
                 String.format("cp -a %s %s", targetSourceDir, targetDestDir), false);
 
-        System.out.printf("Rsync removeTargetDirRetCode=%d, removeDiffDirRetCode=%d, copySnapshotRetCode=%d\n",
-                removeTargetDirRetCode, removeDiffDirRetCode, copySnapshotRetCode
-        );
-
         assert removeTargetDirRetCode == 0 &&
                 removeDiffDirRetCode == 0 &&
                 copySnapshotRetCode == 0;
@@ -162,11 +158,10 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         int count = 0;
         while (true) {
             if (++count >= 10) {
-                System.out.printf("RsyncRecorder.captureStateDiff() failed after %d iterations\n", count);
-                break;
+		throw new RuntimeException(String.format(
+		    "%s failed to capture stateDiff for %s:%d after %d tries", 
+		    this.getClass().getSimpleName(), serviceName, placementEpoch, count));
             }
-
-            System.out.printf("RsyncRecorder.captureStateDiff(iter=%d)\n", count);
 
             String command = String.format("%s -ar --write-batch=%s %s %s",
                     RSYNC_BIN_PATH, targetDiffFile, targetSourceDir, targetDestDir);
@@ -181,6 +176,8 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+	/*
         long bytes = stateDiff.length;
         double kb = (double) bytes / 1024;
         double mb = kb / 1024;
@@ -189,6 +186,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                 "RsyncRecorder.captureStateDiff() - uncompressed stateDiff size = %d bytes, %.2fKB, %.2fMB \n",
                 bytes, kb, mb
         );
+	*/
 
         // compress stateDiff
         byte[] compressedStateDiff;
@@ -240,23 +238,17 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         // apply the stateDiff inside the .diff file using rsync
         while (true) {
             if (++count >= 10) {
-                System.out.printf("RsyncRecorder.applyStateDiff() failed after %d iterations\n", count);
-                break;
+		throw new RuntimeException(String.format(
+		    "%s failed to apply stateDiff for %s:%d after %d tries", 
+		    this.getClass().getSimpleName(), serviceName, placementEpoch, count));
             }
 
-            System.out.printf("RsyncRecorder.applyStateDiff(iter=%d)\n", count);
             String command = String.format("%s -ar --read-batch=%s %s",
                     RSYNC_BIN_PATH, targetDiffFile, targetDir);
             retCode = Shell.runCommand(command, true);
 
             if (retCode == 0) break;
         }
-        /*
-        System.out.printf("RsyncRecorder.applyStateDiff(iter=%d)\n", count);
-        String command = String.format("%s -ar --read-batch=%s %s",
-                RSYNC_BIN_PATH, targetDiffFile, targetDir);
-        retCode = Shell.runCommand(command, false);
-        */
 
         assert retCode == 0;
 
@@ -266,7 +258,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     @Override
     public boolean removeServiceRecorder(String serviceName, int placementEpoch) {
         String targetDir = this.getTargetDirectory(serviceName, placementEpoch);
-        int retCode = Shell.runCommand("rm -rf " + targetDir);
+        int retCode = Shell.runCommand("rm -rf " + targetDir, false);
         assert retCode == 0;
         return true;
     }
@@ -286,16 +278,11 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
                 .filter(node -> !node.equals(myNodeId.toString()))
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
-        System.out.printf("RsyncStateDiff backupNodes = %s\n", backupNodes);
-        System.out.printf("RsyncStateDiff ipAddresses = %s\n", ipAddresses);
 
         String currentReplica = String.format("%s%s/", this.defaultWorkingBasePath, myNodeId);
 
         Map<String, String> backupReplicas = new HashMap<>();
         backupNodes.forEach(node -> backupReplicas.put(node, String.format("%s%s/", this.defaultWorkingBasePath, node)));
-
-        System.out.println("Primary: " + currentReplica);
-        System.out.println("Backups: " + backupReplicas);
 
         String mntDir = String.format("mnt/%s/", serviceName);
         String snpDir = String.format("snp/%s/", serviceName);
@@ -326,7 +313,9 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
         int count = 0;
         while (!allSyncSuccess) {
             if (++count > 10) {
-                throw new RuntimeException("Failed running rsync after 10 iterations");
+		throw new RuntimeException(String.format(
+		    "%s failed to rsync files for %s:%d during non-deterministic init after %d tries", 
+		    this.getClass().getSimpleName(), serviceName, placementEpoch, count));
             }
 
             allSyncSuccess = true;

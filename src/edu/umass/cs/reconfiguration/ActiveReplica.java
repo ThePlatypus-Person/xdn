@@ -802,6 +802,8 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
          * single replica, which is "wrong", unless we spawn a separate thread. */
         if (handled && request instanceof ReconfigurableRequest
                 && ((ReconfigurableRequest) request).isStop())
+	    System.out.printf("%s:AR.executed() - STOP REQUEST\n", this.messenger.getMyID());
+
             // protocol executor also allows us to just submit a Runnable
             this.protocolExecutor.submit(new AckStopNotifier(request));
     }
@@ -1058,8 +1060,8 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
             StopEpoch<NodeIDType> stopEpoch,
             ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
         this.logEvent(stopEpoch);
-        if (this.stoppedOrMovedOn(stopEpoch))
-            return this.sendAckStopEpoch(stopEpoch).toArray(); // still send ack
+        //if (this.stoppedOrMovedOn(stopEpoch))
+        //    return this.sendAckStopEpoch(stopEpoch).toArray(); // still send ack
         if (!stopEpoch.shouldExecuteStop())
             return null;
         // else coordinate stop with callback
@@ -1108,7 +1110,7 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     public GenericMessagingTask<NodeIDType, ?>[] handleDropEpochFinalState(
             DropEpochFinalState<NodeIDType> event,
             ProtocolTask<NodeIDType, ReconfigurationPacket.PacketType, String>[] ptasks) {
-        System.out.printf("\t %s::AR.handleDropEpochFinalState() - service=%s, epoch=%d\n", this.getMyID(), event.getServiceName(), event.getEpochNumber());
+        //System.out.printf("\t %s::AR.handleDropEpochFinalState() - service=%s, epoch=%d\n", this.getMyID(), event.getServiceName(), event.getEpochNumber());
 
         Level level = event.getServiceName().equals(
                 AbstractReconfiguratorDB.RecordNames.RC_NODES.toString())
@@ -1244,8 +1246,12 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
                 request.getEpochNumber(), stateContainer.state, this.getMyID());
         GenericMessagingTask<NodeIDType, EpochFinalState<NodeIDType>> mtask = null;
 
-        log.log(Level.INFO, "{0} returning epoch final state to {1} {2}",
-                new Object[]{this, event.getKey(), epochState.getSummary()});
+        //log.log(Level.INFO, "{0} returning epoch final state to {1} {2}",
+        //        new Object[]{this, event.getKey(), epochState.getSummary()});
+
+        log.log(Level.INFO, "{0} returning {1}:{2} epoch final state to {3}",
+                new Object[]{this, request.getServiceName(), request.getEpochNumber(), event.getKey()});
+
         mtask = new GenericMessagingTask<NodeIDType, EpochFinalState<NodeIDType>>(
                 request.getInitiator(), epochState);
 
@@ -1253,8 +1259,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
     }
 
     private StringContainer getFinalStateContainer(String name, int epoch) {
-        System.out.printf("%s::AR.getFinalStateContainer() - name=%s, epoch=%d\n", this.getMyID(), name, epoch);
-
         if (this.appCoordinator instanceof PaxosReplicaCoordinator)
             return ((PaxosReplicaCoordinator<NodeIDType>) (this.appCoordinator))
                     .getFinalStateContainer(name, epoch);
@@ -1528,8 +1532,6 @@ public class ActiveReplica<NodeIDType> implements ReconfiguratorCallback,
 
     private GenericMessagingTask<NodeIDType, ?> sendAckStopEpoch(
             StopEpoch<NodeIDType> stopEpoch) {
-        System.out.printf("\t %s::AR.sendAckStopEpoch() - service=%s, epoch=%d\n", this.getMyID(), stopEpoch.getServiceName(), stopEpoch.getEpochNumber());
-
         // inform reconfigurator
         AckStopEpoch<NodeIDType> ackStopEpoch = new AckStopEpoch<NodeIDType>(
                 this.getMyID(), stopEpoch,

@@ -28,7 +28,6 @@ public class ZipFiles {
      * @param zipDirName the target archived file location.
      */
     public static void zipDirectory(File dir, String zipDirName) {
-        System.out.printf("ZF.zipDirectory() - dir=%s, zipDir=%s\n", dir.getName(), zipDirName);
         try {
             List<String> files = populateFilesList(dir);
             // now zip files one by one

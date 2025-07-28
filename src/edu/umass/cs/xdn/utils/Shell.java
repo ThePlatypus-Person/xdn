@@ -1,11 +1,11 @@
 package edu.umass.cs.xdn.utils;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
-import edu.umass.cs.xdn.utils.ShellOutput;
 
 
 public class Shell {
@@ -115,9 +115,6 @@ public class Shell {
             try {
                 ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
 
-                pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-                pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-
                 if (environmentVariables != null) {
                     Map<String, String> processEnv = pb.environment();
                     processEnv.putAll(environmentVariables);
@@ -130,10 +127,45 @@ public class Shell {
                     }
                 }
 
-                Process process = pb.start();
+		Process process = pb.start();
+
+		Thread stdoutThread = null;
+		Thread stderrThread = null;
+
+		if (!isSilent) {
+		    stdoutThread = new Thread(() -> {
+			try (BufferedReader reader = new BufferedReader(
+			    new InputStreamReader(process.getInputStream()))) {
+			    String line;
+			    while ((line = reader.readLine()) != null) {
+				System.out.println("[stdout] " + line);
+			    }
+			} catch (IOException e) {
+			    e.printStackTrace();
+			}
+		    });
+
+		    stderrThread = new Thread(() -> {
+			try (BufferedReader reader = new BufferedReader(
+			    new InputStreamReader(process.getErrorStream()))) {
+			    String line;
+			    while ((line = reader.readLine()) != null) {
+				System.err.println("[stderr] " + line);
+			    }
+			} catch (IOException e) {
+			    e.printStackTrace();
+			}
+		    });
+
+		    stdoutThread.start();
+		    stderrThread.start();
+		}
+
                 int exitCode = process.waitFor();
 
                 if (!isSilent) {
+		    stdoutThread.join();
+		    stderrThread.join();
                     System.out.println("exit code: " + exitCode);
                 }
             } catch (IOException | InterruptedException e) {

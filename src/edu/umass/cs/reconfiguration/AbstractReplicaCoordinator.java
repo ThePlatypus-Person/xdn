@@ -246,6 +246,9 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
         // check if coordination on request before unwrapping
 
         if (needsCoordination(request)) {
+	    System.out.printf("%s:ARC.handleIncoming() - needsCoordination(req=%s)\n", 
+		this.messenger.getMyID(), request.getSummary());
+
             try {
                 if (request instanceof ReplicableRequest) {
                     ((ReplicableRequest) request).setNeedsCoordination(false);
@@ -257,6 +260,9 @@ public abstract class AbstractReplicaCoordinator<NodeIDType> implements
                 rpe.printStackTrace();
             }
         } else {
+	    System.out.printf("%s:ARC.handleIncoming() - execute(req=%s) without coordination\n", 
+		this.messenger.getMyID(), request.getSummary());
+
             handled = this.execute(unwrapIfNeeded(request), callback);
         }
         return handled;

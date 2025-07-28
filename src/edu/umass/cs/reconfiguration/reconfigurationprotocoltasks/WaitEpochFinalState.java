@@ -110,9 +110,11 @@ public class WaitEpochFinalState<NodeIDType>
     public GenericMessagingTask<NodeIDType, ?>[] start() {
         if (!this.prevGroupIterator.hasNext())
             return null;
+
         this.sleepOptimization();
         log.log(Level.INFO, "{0} requesting final epoch state {1}",
                 new Object[]{this, reqState.getSummary()});
+
         // Try myself first if I am in both old and new groups
         NodeIDType target = this.positionIterator();
         GenericMessagingTask<NodeIDType, ?> mtask = new GenericMessagingTask<NodeIDType, Object>(
@@ -122,12 +124,20 @@ public class WaitEpochFinalState<NodeIDType>
 
     private NodeIDType positionIterator() {
         // firstTry is me or first prev epoch candidate
-        NodeIDType firstTry = this.startEpoch.getFirstPrevEpochCandidate() != null ? this.startEpoch
-                .getFirstPrevEpochCandidate() : this.appCoordinator.getMyID();
+	/*
+	NodeIDType firstTry = 
+	    this.startEpoch.getPrevEpochGroup().contains(this.appCoordinator.getMyID()) ?
+	    this.appCoordinator.getMyID() : this.startEpoch.getFirstPrevEpochCandidate();
+	*/
+	NodeIDType firstTry = 
+	    this.startEpoch.getPrevEpochGroup().contains(this.appCoordinator.getMyID()) ?
+	    this.appCoordinator.getMyID() : this.startEpoch.getFirstPrevEpochCandidate();
+
         // if not contains firstTry or not first time
         if (!this.startEpoch.getPrevEpochGroup().contains(firstTry)
                 || !this.first || (this.first = false))
             return this.prevGroupIterator.next();
+
         // else contains firstTry and first time
         while (this.prevGroupIterator.hasNext()
                 && !this.prevGroupIterator.next().equals(firstTry))
@@ -205,8 +215,12 @@ public class WaitEpochFinalState<NodeIDType>
                 EpochFinalState<NodeIDType> state = (EpochFinalState<NodeIDType>) event;
                 if (!checkEpochFinalState(event))
                     break;
-                log.log(Level.INFO, "{0} received {1}",
-                        new Object[]{this, state.getSummary(), state.getState()});
+                //log.log(Level.INFO, "{0} received {1}",
+                //        new Object[]{this, state.getSummary(), state.getState()});
+ 
+                log.log(Level.INFO, "{0} received {1}:{2} final state",
+                        new Object[]{this, state.getServiceName(), state.getEpochNumber()});
+
                 handled = this.appCoordinator.createReplicaGroup(
                         /*serviceName=*/this.startEpoch.getServiceName(),
                         /*epoch=*/this.startEpoch.getEpochNumber(),

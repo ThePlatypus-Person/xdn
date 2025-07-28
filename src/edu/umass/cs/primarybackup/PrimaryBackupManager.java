@@ -19,6 +19,7 @@ import edu.umass.cs.reconfiguration.reconfigurationutils.AbstractDemandProfile;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
 import edu.umass.cs.utils.Config;
 import edu.umass.cs.xdn.XdnGigapaxosApp;
+import edu.umass.cs.xdn.request.XdnStopRequest;
 import edu.umass.cs.xdn.service.ServiceProperty;
 import edu.umass.cs.xdn.utils.Shell;
 import org.json.JSONException;
@@ -188,39 +189,33 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
         // RequestPacket: client -> entry replica
         if (packet instanceof RequestPacket requestPacket) {
-            //System.out.println(String.format("PBManager-%s RequestPacket: client -> entry replica", myNodeID));
             return handleRequestPacket(requestPacket, callback);
         }
 
         // ForwardedRequestPacket: entry replica -> primary
         if (packet instanceof ForwardedRequestPacket forwardedRequestPacket) {
-            //System.out.println(String.format("PBManager-%s ForwardedRequestPacket: entry replica -> primary", myNodeID));
             return handleForwardedRequestPacket(forwardedRequestPacket, callback);
         }
 
         // ResponsePacket: primary -> entry replica
         if (packet instanceof ResponsePacket responsePacket) {
-            //System.out.println(String.format("PBManager-%s ResponsePacket: primary -> entry replica", myNodeID));
             return handleResponsePacket(responsePacket, callback);
         }
 
         // ChangePrimaryPacket: client -> entry replica
         if (packet instanceof ChangePrimaryPacket changePrimaryPacket) {
-            //System.out.println(String.format("PBManager-%s ChangePrimaryPacket: client -> entry replica", myNodeID));
             return handleChangePrimaryPacket(changePrimaryPacket, callback);
         }
 
         // ApplyStateDiffPacket: primary -> replica
         // only executed by XDNGigapaxosApp
         if (packet instanceof ApplyStateDiffPacket applyStateDiffPacket) {
-            //System.out.println(String.format("PBManager-%s ApplyStateDiffPacket: primary -> replica", myNodeID));
             return executeApplyStateDiffPacket(applyStateDiffPacket);
         }
 
         // StartEpochPacket: primary candidate -> replica
         // only executed by XDNGigapaxosApp
         if (packet instanceof StartEpochPacket startEpochPacket) {
-            //System.out.println(String.format("PBManager-%s StartEpochPacket: primary candidate -> replica", myNodeID));
             return executeStartEpochPacket(startEpochPacket);
         }
 
@@ -579,6 +574,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
             // As a backup, this node simply apply the stateDiff coming from the PRIMARY
             if (myCurrentRole.equals(Role.BACKUP)) {
+
+		Logger.getGlobal().log(Level.FINE,
+			">>> {0}:{1} applying stateDiff packet for {2}:{3}",
+			new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+			groupName, currentEpoch.counter});
                 this.backupableApp.applyStatediff(groupName, packet.getStateDiff());
                 return true;
             }
@@ -612,7 +612,10 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             currentEpoch = newPrimaryEpoch;
         }
 
-        System.out.printf("%s:PBM.executeStartEpochPacket() - service=%s, currEpoch=%s, primaryEpoch=%s\n", this.myNodeID, groupName, currentEpoch, newPrimaryEpoch);
+	Logger.getGlobal().log(Level.FINE,
+		"{0}:{1} executing START_EPOCH packet for {2} epoch={3}",
+		new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+		groupName, newPrimaryEpochStr});
 
         // receive smaller, ignore that epoch.
         // receive current epoch from myself, ignore the StartEpoch packet as it already
@@ -702,32 +705,18 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                                                String initialState,
                                                Set<NodeIDType> nodes,
                                                String placementMetadata) {
-	/*
-        System.out.printf("%s:PBM.createPrimaryBackupInstance(service=%s, epoch=%d, nodes=%s, initState=%s)",
-                myNodeID, groupName, placementEpoch, nodes.toString(), initialState
-        );
-	*/
-
-        boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
-                groupName, placementEpoch);
-
-	if (alreadyExist) {
-	    System.out.printf("%s:PBM.createPrimaryBackupInstance(service=%s, epoch=%d) - alreadyExist. Returning early...\n",
-	    this.myNodeID, groupName, placementEpoch);
-	return true;
-	}
-
         if (initialState.startsWith(ServiceProperty.XDN_INITIAL_STATE_PREFIX) |
                 initialState.startsWith(ServiceProperty.XDN_EPOCH_FINAL_STATE_PREFIX)
         ) {
             initialState = String.format("nondeter:create:%s", initialState);
         }
 
-        // this.paxosMiddlewareApp = XdnGigapaxosApp
         boolean created = this.paxosManager.createPaxosInstanceForcibly(
                 groupName, placementEpoch, nodes, this.paxosMiddlewareApp, initialState, 0);
+        boolean alreadyExist = this.paxosManager.equalOrHigherVersionExists(
+                groupName, placementEpoch);
 
-        if (!created) {
+        if (!created && !alreadyExist) {
             throw new PaxosInstanceCreationException((this
                     + " failed to create " + groupName + ":" + placementEpoch
                     + " with state [" + initialState + "]") + "; existing_version=" +
@@ -752,11 +741,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
             return true;
         }
 
-        boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, placementEpoch);
-        if (!isInitializationSuccess) {
-            System.out.printf("Failed to initialize replica group for %s\n", groupName);
-            return false;
-        }
+	boolean isInitializationSuccess = initializePrimaryEpoch(groupName, nodes, placementEpoch);
+	if (!isInitializationSuccess) {
+	    System.out.printf("Failed to initialize replica group for %s\n", groupName);
+	    return false;
+	}
 
         return true;
     }
@@ -764,9 +753,6 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
     private boolean initializePrimaryEpoch(String groupName, Set<NodeIDType> nodes, String placementMetadata, int placementEpoch) {
         assert groupName != null && !groupName.isEmpty();
         assert placementMetadata != null && !placementMetadata.isEmpty();
-
-        System.out.printf("\t\t%s:PBM.initializePrimaryEpoch(epoch=%s) - initialize with placement metadata %s", 
-	    myNodeID, placementEpoch, placementMetadata);
 
         this.currentRole.put(groupName, Role.BACKUP);
 
@@ -786,16 +772,38 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
         // attempts to be the coordinator, if this node is the preferred coordinator
         // specified in the placement metadata.
         if (this.myNodeID.toString().equals(preferredCoordinatorNodeId)) {
+            Logger.getGlobal().log(Level.FINE,
+                    "{0}:{1} trying to be paxos coordinator before starting {2}:{3}",
+		    new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+		    groupName, placementEpoch});
+
+	    // Try to be coordinator
+	    int count = 0;
+	    while (!this.paxosManager.getPaxosCoordinator(groupName).equals(this.myNodeID)) {
+		if (++count > 10) {
+		    throw new RuntimeException(String.format(
+			"%s:PrimaryBackupManager.initializePrimaryEpoch() - unable to become paxos coordinator for %s:%d after %d tries.",
+			this.myNodeID, groupName, placementEpoch, count
+		    ));
+		};
+
+		this.paxosManager.tryToBePaxosCoordinator(groupName);
+		try {
+		    Thread.sleep(3000);
+		} catch (InterruptedException e) {
+		    throw new RuntimeException(e);
+		}
+	    }
 
             // FIXME: we need to wait for other replicas (majority) to active first,
             //  before we can propose something.
+	    /*
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-
-            this.paxosManager.tryToBePaxosCoordinator(groupName);
+	    */
 
             Map<String, InetAddress> ipAddresses = new HashMap<>();
             NodeConfig<NodeIDType> initNodeConfig = this.messenger.getNodeConfig();
@@ -804,11 +812,11 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                     initNodeConfig.getNodeAddress(node)
             ));
 
-            System.out.printf(">> %s Initializing primary epoch for %s\n", myNodeID, groupName);
+            System.out.printf("\t>> %s Initializing primary epoch for %s:%d. PaxosCoordinator=%s\n", 
+		myNodeID, groupName, placementEpoch, this.paxosManager.getPaxosCoordinator(groupName));
             PrimaryEpoch<NodeIDType> epoch = new PrimaryEpoch<>(myNodeID, placementEpoch);
             this.currentRole.put(groupName, Role.PRIMARY_CANDIDATE);
             this.currentPrimaryEpoch.put(groupName, epoch);
-	    
             StartEpochPacket startPacket = new StartEpochPacket(groupName, epoch);
             this.paxosManager.propose(
                     groupName,
@@ -837,9 +845,19 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
                         xdnApp.restore(groupName, "nondeter:start:");
                         xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
-                    }
-            );
 
+			while (!this.paxosManager.getPaxosCoordinator(groupName).equals(this.myNodeID)) {
+			    System.out.printf(">> %s PRIMARY re-electing itself due to coordinator issues %s:%d\n",
+				myNodeID, groupName, placementEpoch);
+			    this.paxosManager.tryToBePaxosCoordinator(groupName);
+			    try {
+				Thread.sleep(3000);
+			    } catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			    }
+			}
+		}
+	    );
         }
 
         return true;
@@ -900,23 +918,17 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         xdnApp.restore(groupName, "nondeter:start:");
                         xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
 
-		    /*
-                    Set<NodeIDType> backupNodes = nodes.stream()
-                        .filter(node -> !node.equals(myNodeID))
-                        .collect(Collectors.toSet());
-
-                    InitBackupPacket initPacket = new InitBackupPacket(groupName);
-                    GenericMessagingTask<NodeIDType, InitBackupPacket> m = new GenericMessagingTask<>(backupNodes.toArray(), initPacket);
-
-                    // send packet to all backup replicas
-                    try {
-                        this.messenger.send(m);
-                    } catch (IOException | JSONException e) {
-                        throw new RuntimeException(e);
-                    }
-		    */
-
                         System.out.println("\n>>> non-deterministic service initialization complete\n");
+			while (!this.paxosManager.getPaxosCoordinator(groupName).equals(this.myNodeID)) {
+			    System.out.printf(">> %s PRIMARY re-electing itself due to coordinator issues %s:%d\n",
+				myNodeID, groupName, placementEpoch);
+			    this.paxosManager.tryToBePaxosCoordinator(groupName);
+			    try {
+				Thread.sleep(3000);
+			    } catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			    }
+			}
                     }
             );
         }
@@ -992,32 +1004,104 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
 
     private boolean handleStopRequest(ReconfigurableRequest stopRequest) {
         assert stopRequest.isStop() : "incorrect request type";
+	Logger.getGlobal().log(Level.INFO,
+		"{0}:{1} received a XDN_STOP_REQUEST for {2}:{3}",
+		new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+		stopRequest.getServiceName(), stopRequest.getEpochNumber()});
+
         return this.replicableApp.execute(stopRequest, true);
     }
 
     protected boolean handleReconfigurationPacket(ReconfigurableRequest reconfigurationPacket,
                                                   ExecutedCallback callback) {
-        System.out.printf("%s:PbManager handling reconfiguration packet of %s with callback=%s\n",
-                this.myNodeID, reconfigurationPacket.getClass().getSimpleName(),
-                callback.getClass().getSimpleName());
 
-        if (reconfigurationPacket.isStop()) {
-            String serviceName = reconfigurationPacket.getServiceName();
-            int reconfigurationEpoch = reconfigurationPacket.getEpochNumber();
+        if (!reconfigurationPacket.isStop()) {
+            Logger.getGlobal().log(Level.WARNING,
+                    "{0}:{1} received a reconfigurationPacket that is not a STOP_EPOCH packet (unimplemented!) - {2}",
+		    new Object[]{this.myNodeID, this.getClass().getSimpleName(), reconfigurationPacket});
 
-            System.out.printf("%s:PbManager stopping service name=%s epoch=%d\n",
-                    this.myNodeID, serviceName, reconfigurationEpoch);
+	    return false;
+	}
 
-            boolean isExecStopSuccess = this.handleStopRequest(reconfigurationPacket);
-            assert isExecStopSuccess : "must be successful on executing stop request";
-            callback.executed(reconfigurationPacket, true);
+	String serviceName = reconfigurationPacket.getServiceName();
+	Role currentServiceRole = this.currentRole.get(serviceName);
+	if (currentServiceRole == null) {
+            Logger.getGlobal().log(Level.WARNING,
+                    "{0}:{1} unkown service {2} STOP_EPOCH packet",
+		    new Object[]{this.myNodeID, this.getClass().getSimpleName(), serviceName});
+	    return true;
+	}
 
-            return true;
+	if (currentServiceRole == Role.PRIMARY) {
+	    int reconfigurationEpoch = reconfigurationPacket.getEpochNumber();
+
+	    boolean isPaxosCoordinator = this.paxosManager.isPaxosCoordinator(serviceName);
+	    if (!isPaxosCoordinator) {
+		this.paxosManager.tryToBePaxosCoordinator(serviceName);
+	    }
+
+	    PrimaryEpoch currentEpoch = null;
+	    String stateDiff = null;
+	    synchronized (this) {
+		 currentEpoch = this.currentPrimaryEpoch.get(serviceName);
+		if (currentEpoch == null) {
+		    throw new RuntimeException("Unknown current primary epoch for " + serviceName);
+		}
+		stateDiff = backupableApp.captureStatediff(serviceName);
+	    }
+
+	    ApplyStateDiffPacket applyStateDiffPacket = new ApplyStateDiffPacket(
+		serviceName, currentEpoch, stateDiff);
+	    ReplicableClientRequest gpPacket = ReplicableClientRequest.wrap(applyStateDiffPacket);
+	    gpPacket.setClientAddress(messenger.getListeningSocketAddress());
+
+	    Logger.getGlobal().log(Level.FINE,
+		    "{0}:{1} applying most recent stateDiff for {2}:{3} before stopping epoch",
+		    new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+		    serviceName, currentEpoch.counter});
+
+	    this.paxosManager.propose(
+                serviceName,
+                gpPacket,
+                (stateDiffPacket, handled) -> {
+		    ReconfigurableRequest stopRequest = new XdnStopRequest(serviceName, reconfigurationEpoch);
+		    Logger.getGlobal().log(Level.FINE,
+			    "{0}:{1} proposing STOP_EPOCH request for {2}:{3} as primary",
+			    new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+			    serviceName, reconfigurationEpoch});
+
+		    this.paxosManager.proposeStop(serviceName, reconfigurationEpoch,
+			stopRequest, (response, isHandled) -> {
+			    callback.executed(reconfigurationPacket, true);
+			}
+		    );
+                }
+	    );
+
+	    return true;
+	}
+
+	// forward request to PRIMARY so it can capture & apply stateDiff 
+	// before handling STOP_EPOCH
+	// NOTE: Currently a very hacky implementation. Current node does not 
+	// return response to RC
+	// RC also does not know which one is the primary, so it sends the reconfigurationPacket 
+	// to all existing replicas
+
+
+	// NOTE: Doesn't work. Does nothing because node that receives this cannot process the request (getRequestType is null)
+        NodeIDType currentPrimaryIDStr = currentPrimary.get(serviceName);
+        if (currentPrimaryIDStr == null) {
+            throw new RuntimeException("Unknown primary ID");
+            // TODO: potential fix would be to ask the current Paxos' coordinator to be the Primary
         }
 
-        System.out.println("WARNING: Unhandled reconfigurationPacket of " +
-                reconfigurationPacket.getClass().getSimpleName() + ": " + reconfigurationPacket);
-        return false;
+	Logger.getGlobal().log(Level.FINE,
+		"{0}:{1} is not Primary, dropping STOP_EPOCH packet for {2}",
+		new Object[]{this.myNodeID, this.getClass().getSimpleName(), 
+		serviceName});
+
+        return true;
     }
 
 

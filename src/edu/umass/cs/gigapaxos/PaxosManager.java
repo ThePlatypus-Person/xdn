@@ -15,6 +15,7 @@
  * Initial developer(s): V. Arun */
 package edu.umass.cs.gigapaxos;
 
+import edu.umass.cs.gigapaxos.PaxosConfig;
 import edu.umass.cs.gigapaxos.PaxosConfig.PC;
 import edu.umass.cs.gigapaxos.interfaces.*;
 import edu.umass.cs.gigapaxos.paxospackets.*;
@@ -749,19 +750,6 @@ public class PaxosManager<NodeIDType> {
             String paxosID, int version, Set<NodeIDType> gms, Replicable app,
             String initialState, HotRestoreInfo hri, boolean tryRestore,
             boolean missedBirthing) {
-
-	/*
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        String stackTraceString = Arrays.stream(stackTrace)
-                .skip(1) // Skip the top element (this method call itself)
-                .map(StackTraceElement::toString)
-                .collect(Collectors.joining("\n\tat "));
-        System.out.printf("Stack Trace %s:PM.createPaxosInstanceFinal(paxosID=%s) :\n\tat %s", 
-	    this.messenger.getMyID(),
-	    paxosID,
-	    stackTraceString
-	);
-	*/
 
         if (this.isClosed())
             return null;
@@ -2710,12 +2698,10 @@ public class PaxosManager<NodeIDType> {
         // if equal or higher instance exists
         if (pism != null && (pism.getVersion() - version >= 0)) {
             System.out.printf("%s:PM.createPaxosInstanceForcibly(name=%s, epoch=%d) - is equal or higher instance exists\n", 
-		this.messenger.getMyID(), version, paxosID);
+		this.messenger.getMyID(), paxosID, version);
             return true;
         }
 
-        System.out.printf("%s:PM.createPaxosInstanceForcibly(name=%s) - Creating new PISM\n", 
-	    this.messenger.getMyID(), paxosID);
         if (pism != null && pism.getVersion() - version < 0) {
             PaxosConfig.log.log(Level.INFO,
                     "{0} forcibly killing {1} in order to create {2}:{3}",
@@ -3688,11 +3674,8 @@ public class PaxosManager<NodeIDType> {
     }
 
     public void tryToBePaxosCoordinator(String paxosID) {
-        System.out.printf("%s:PM.tryToBePaxosCoordinator() - paxosID=%s\n", messenger.getMyID(), paxosID);
-
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
         if (pism == null) {
-            System.out.printf("%s:PM.tryToBePaxosCoordinator() - paxosID=%s, PISM == null. Returning\n", messenger.getMyID(), paxosID);
             return;
         }
 
@@ -3700,15 +3683,22 @@ public class PaxosManager<NodeIDType> {
     }
 
     public void restartFromLastCheckpoint(String paxosID) {
-        System.out.printf("%s:PM.restartFromLastCheckpoint() - paxosID=%s\n", messenger.getMyID(), paxosID);
         PaxosInstanceStateMachine pism = this.getInstance(paxosID);
         if (pism == null) {
             return;
         }
 
         this.softCrash(pism);
-        pism = this.getInstance(paxosID);
-        assert pism != null : "failed to restart as pism is failed to be re-created";
+
+	int count = 0;
+	int MAX_ITER = 10;
+	while (pism == null) {
+	    pism = this.getInstance(paxosID);
+	    if (++count >= MAX_ITER) {
+		assert pism != null : String.format("Failed to re-create PISM after %d tries.", count);
+	    }
+	}
+
         pism.poke(true);
     }
 }
