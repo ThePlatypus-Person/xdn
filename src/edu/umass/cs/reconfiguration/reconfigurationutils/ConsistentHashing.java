@@ -47,7 +47,9 @@ public class ConsistentHashing<NodeIDType> {
         PaxosConfig.load(ReconfigurationConfig.RC.class);
     }
 
-    private static final int DEFAULT_NUM_REPLICAS = Config.getGlobalInt(RC.DEFAULT_NUM_REPLICAS);
+    private static final int DEFAULT_NUM_REPLICAS = Integer.parseInt(
+	PaxosConfig.getAsProperties().getProperty("DEFAULT_NUM_REPLICAS", "3")
+    );
 
     private static MessageDigest md;
 

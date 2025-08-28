@@ -13,6 +13,7 @@ import java.util.Set;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.umass.cs.gigapaxos.PaxosConfig;
 import edu.umass.cs.gigapaxos.interfaces.Request;
 import edu.umass.cs.nio.nioutils.RTTEstimator;
 import edu.umass.cs.reconfiguration.ReconfigurationConfig.RC;
@@ -250,9 +251,11 @@ public class ProximateBalance extends DemandProfile {
                 .getAllActiveReplicas();
         Collection<InetSocketAddress> actives = (activesMap.values());
         // ensure minimum utilization
-        int avgNumReplicas = (int) Math.max(
-                Config.getGlobalInt(RC.DEFAULT_NUM_REPLICAS),
+	int defaultNumReplicas = Integer.parseInt(
+	    PaxosConfig.getAsProperties().getProperty("DEFAULT_NUM_REPLICAS", "3")
+	);
 
+        int avgNumReplicas = (int) Math.max(defaultNumReplicas,
                 /* The total load actives.size() * MIN_SERVER_CAPACITY should be
                  * equal to (1 + k/aggregateRWRatio)*aggregate_read_rate, where
                  * we have assumed that each write counts as a load equivalent
@@ -261,9 +264,8 @@ public class ProximateBalance extends DemandProfile {
                         * getAggregateRWRatio());
 
         // replicate proportional to rwRatio
-        int numReplicas = (int) Math.max(
-                Config.getGlobalInt(RC.DEFAULT_NUM_REPLICAS), avgNumReplicas
-                        * this.getRWRatio() / getAggregateRWRatio());
+        int numReplicas = (int) Math.max(defaultNumReplicas,
+	    avgNumReplicas * this.getRWRatio() / getAggregateRWRatio());
 
         // sort by increasing demand
         ArrayList<InetSocketAddress> newActives = new ArrayList<InetSocketAddress>(
@@ -289,10 +291,9 @@ public class ProximateBalance extends DemandProfile {
         for (int j = 0; j < newActives.size() - numReplicas; j++)
             newActives.remove(0);
         // have at least minimum number of replicas
-        if (newActives.size() < Config.getGlobalInt(RC.DEFAULT_NUM_REPLICAS))
+        if (newActives.size() < defaultNumReplicas)
             for (String curActive : curActives)
-                if (newActives.size() < Config
-                        .getGlobalInt(RC.DEFAULT_NUM_REPLICAS)
+                if (newActives.size() < defaultNumReplicas
                         && !newActives.contains(curActive))
                     newActives.add(activesMap.get(curActive));
 
