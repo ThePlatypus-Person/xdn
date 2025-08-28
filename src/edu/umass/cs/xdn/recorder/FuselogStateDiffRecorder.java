@@ -418,7 +418,7 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch, String sshKey) {
         System.out.printf("%s:FUSE.initContainerSync(serviceName=%s, placementEpoch=%d)\n", myNodeId, serviceName, placementEpoch);
 
         Set<String> backupNodes = ipAddresses.keySet().stream()
@@ -441,6 +441,9 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
         int count = 0;
 
         ExecutorService executor = Executors.newFixedThreadPool(backupReplicas.size());
+	String sshOption = sshKey != null && !sshKey.trim().isEmpty()
+	    ? String.format("-e \"ssh -i %s\"", sshKey)
+	    : "";
 
         while (!allSyncSuccess) {
             if (++count > 10) {
@@ -457,9 +460,11 @@ public class FuselogStateDiffRecorder extends AbstractStateDiffRecorder {
                 futures.add(executor.submit(() -> {
                     int exitCode = Shell.runCommand(String.format("""
                                     rsync -avz --delete --human-readable \
+				    %s \
                                     --include='mnt/' --include='%s' --include='%s***' \
                                     --exclude='*' \
                                     %s %s@%s:%s""",
+			    sshOption,
                             mntDir, mntDir, currentReplica,
                             username, ipAddresses.get(replicaKey).getHostAddress(),
                             backupReplicas.get(key)

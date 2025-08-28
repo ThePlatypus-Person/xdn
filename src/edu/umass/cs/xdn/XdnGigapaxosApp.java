@@ -1937,7 +1937,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
      *                                  Backup Test methods                                     *
      *********************************************************************************************/
     // This function is only called by the primary replica
-    public void nonDeterministicInitialization(String serviceName, Map<String, InetAddress> ipAddresses) {
+    public void nonDeterministicInitialization(String serviceName, Map<String, InetAddress> ipAddresses, String sshKey) {
         int placementEpoch = this.servicePlacementEpoch.get(serviceName);
         assertNotNull("placementEpoch must not be null", placementEpoch);
 
@@ -2051,7 +2051,7 @@ public class XdnGigapaxosApp implements Replicable, Reconfigurable, BackupableAp
             e.printStackTrace();
         }
 
-        this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses, placementEpoch);
+        this.stateDiffRecorder.initContainerSync(this.myNodeId, serviceName, ipAddresses, placementEpoch, sshKey);
         //this.stateDiffRecorder.postInitialization(serviceName, placementEpoch);
         service.initializationSucceed = true;
     }

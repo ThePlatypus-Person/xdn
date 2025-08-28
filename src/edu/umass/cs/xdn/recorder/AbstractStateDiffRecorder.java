@@ -30,5 +30,5 @@ public abstract class AbstractStateDiffRecorder {
     // Backup Test Methods
     abstract public String getDefaultBasePath();
 
-    abstract public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch);
+    abstract public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch, String sshKey);
 }

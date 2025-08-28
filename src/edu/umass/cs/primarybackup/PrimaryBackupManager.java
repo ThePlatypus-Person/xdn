@@ -840,11 +840,12 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
                             return;
 
+			String sshKey = PaxosConfig.getAsProperties().getProperty("SSH_KEY_PATH");
                         System.out.println(">> Handling non-deterministic service initialization");
                         xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
                         xdnApp.restore(groupName, "nondeter:start:");
-                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
+                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses, sshKey);
 
 			while (!this.paxosManager.getPaxosCoordinator(groupName).equals(this.myNodeID)) {
 			    System.out.printf(">> %s PRIMARY re-electing itself due to coordinator issues %s:%d\n",
@@ -912,11 +913,12 @@ public class PrimaryBackupManager<NodeIDType> implements AppRequestParser {
                         if (!(middleware.getReplicableApp() instanceof XdnGigapaxosApp))
                             return;
 
+			String sshKey = PaxosConfig.getAsProperties().getProperty("SSH_KEY_PATH", "-");
                         System.out.println(">> Handling non-deterministic service initialization");
                         xdnApp = (XdnGigapaxosApp) middleware.getReplicableApp();
 
                         xdnApp.restore(groupName, "nondeter:start:");
-                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses);
+                        xdnApp.nonDeterministicInitialization(groupName, ipAddresses, sshKey);
 
                         System.out.println("\n>>> non-deterministic service initialization complete\n");
 			while (!this.paxosManager.getPaxosCoordinator(groupName).equals(this.myNodeID)) {

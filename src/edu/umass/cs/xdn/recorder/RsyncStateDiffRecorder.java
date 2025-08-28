@@ -273,7 +273,7 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
     }
 
     @Override
-    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch) {
+    public void initContainerSync(String myNodeId, String serviceName, Map<String, InetAddress> ipAddresses, int placementEpoch, String sshKey) {
         Set<String> backupNodes = ipAddresses.keySet().stream()
                 .filter(node -> !node.equals(myNodeId.toString()))
                 .map(String::toLowerCase)
@@ -310,6 +310,9 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
 
         // Copy data to other replicas
         Boolean allSyncSuccess = false;
+	String sshOption = sshKey != null && !sshKey.trim().isEmpty()
+	    ? String.format("-e \"ssh -i %s\"", sshKey)
+	    : "";
         int count = 0;
         while (!allSyncSuccess) {
             if (++count > 10) {
@@ -323,9 +326,11 @@ public class RsyncStateDiffRecorder extends AbstractStateDiffRecorder {
             for (String key : backupReplicas.keySet()) {
                 int exitCode = Shell.runCommand(String.format("""
                                 rsync -avz --delete --human-readable \
+				%s \
                                 --include='mnt/' --include='%s' --include='%s***' \
                                 --exclude='*' \
                                 %s %s@%s:%s""",
+			sshOption,
                         mntDir, mntDir, currentReplica,
                         username, ipAddresses.get(key).getHostAddress(),
                         backupReplicas.get(key)
