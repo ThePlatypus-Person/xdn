@@ -9,6 +9,7 @@ import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientReque
 import edu.umass.cs.utils.Config;
 import edu.umass.cs.xdn.XdnGigapaxosApp;
 import edu.umass.cs.xdn.XdnHttpRequestBatcher;
+import edu.umass.cs.xdn.XdnRingBufferBatcher;
 import edu.umass.cs.xdn.request.XdnGetProtocolRoleRequest;
 import edu.umass.cs.xdn.request.XdnHttpRequest;
 import io.netty.bootstrap.ServerBootstrap;
@@ -106,7 +107,7 @@ public class HttpActiveReplica {
     static boolean finished;
 
     private static final boolean isHttpFrontendBatchEnabled = false;
-    private final XdnHttpRequestBatcher batcher;
+    private final XdnRingBufferBatcher batcher;
 
     // Flags to enable/disable debugging feature, specifically to identify bottleneck.
     // - isDebugBypassCoordination: directly send request to docker service, require
@@ -135,7 +136,7 @@ public class HttpActiveReplica {
         }
 
         // Initialize request batching
-        batcher = new edu.umass.cs.xdn.XdnHttpRequestBatcher(arf);
+        batcher = new edu.umass.cs.xdn.XdnRingBufferBatcher(arf, 256);
 
         // Initializing boss and worker event loops.
         // The boss workers are accepting connections, which then will be passed to the child
@@ -196,13 +197,13 @@ public class HttpActiveReplica {
         private final String nodeId;
         private final ActiveReplicaFunctions arFunctions;
         private final MultithreadEventExecutorGroup executorGroup;
-        private final edu.umass.cs.xdn.XdnHttpRequestBatcher requestBatching;
+        private final edu.umass.cs.xdn.XdnRingBufferBatcher requestBatching;
         private final SslContext sslCtx;
 
         HttpActiveReplicaInitializer(String nodeId,
                                      final ActiveReplicaFunctions arf,
                                      final MultithreadEventExecutorGroup executorGroup,
-                                     final edu.umass.cs.xdn.XdnHttpRequestBatcher requestBatching,
+                                     final edu.umass.cs.xdn.XdnRingBufferBatcher requestBatching,
                                      SslContext sslCtx) {
             this.nodeId = nodeId;
             this.arFunctions = arf;
@@ -333,7 +334,7 @@ public class HttpActiveReplica {
         private static String nodeId = null;
         private final ActiveReplicaFunctions arFunctions;
         private final ExecutorService offload;
-        private final edu.umass.cs.xdn.XdnHttpRequestBatcher requestBatching;
+        private final edu.umass.cs.xdn.XdnRingBufferBatcher requestBatching;
         private final InetSocketAddress senderAddr; // client's inet address
 
         private HttpRequest request;
@@ -346,7 +347,7 @@ public class HttpActiveReplica {
         HttpActiveReplicaHandler(String nodeId,
                                  ActiveReplicaFunctions arFunctions,
                                  ExecutorService offload,
-                                 XdnHttpRequestBatcher requestBatching,
+                                 XdnRingBufferBatcher requestBatching,
                                  InetSocketAddress addr) {
             HttpActiveReplicaHandler.nodeId = nodeId;
             this.arFunctions = arFunctions;
