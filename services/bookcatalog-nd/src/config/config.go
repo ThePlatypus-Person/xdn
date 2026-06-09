@@ -48,7 +48,7 @@ func Connect() {
 
 	switch dbType {
 	case "mysql":
-		dsn := "root:root@/books?charset=utf8&parseTime=True&loc=Local"
+		dsn := fmt.Sprintf("root:root@tcp(%s:3306)/books?charset=utf8&parseTime=True&loc=Local", dbHost)
 		isConnSuccess := false
 		for connAttempt > 0 && !isConnSuccess {
 			d, err := gorm.Open(mysql.Open(dsn), gormConfig)
