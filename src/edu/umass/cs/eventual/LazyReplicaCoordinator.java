@@ -15,9 +15,9 @@ import edu.umass.cs.reconfiguration.AbstractReplicaCoordinator;
 import edu.umass.cs.reconfiguration.interfaces.ReconfigurableRequest;
 import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientRequest;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
-import edu.umass.cs.xdn.interfaces.behavior.BehavioralRequest;
-import edu.umass.cs.xdn.request.XdnHttpRequest;
-import edu.umass.cs.xdn.request.XdnHttpRequestBatch;
+import edu.umass.cs.xdn2.interfaces.behavior.BehavioralRequest;
+import edu.umass.cs.xdn2.request.XdnHttpRequest;
+import edu.umass.cs.xdn2.request.XdnHttpRequestBatch;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
 
@@ -151,6 +151,7 @@ public class LazyReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinat
 
             // Write requests are fire-and-forget — execute inline, respond,
             // then asynchronously broadcast WRITE_AFTER on a virtual thread.
+            retainRequestContent(clientRequest);
             boolean isExecSuccess = this.app.execute(clientRequest);
             if (!isExecSuccess) {
                 if (logger.isLoggable(Level.WARNING)) {
@@ -161,7 +162,6 @@ public class LazyReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinat
             }
             callback.executed(clientRequest, true);
 
-            retainRequestContent(clientRequest);
             Thread.ofVirtual().start(() -> {
                 try {
                     LazyPacket writeAfterPacket = new LazyWriteAfterPacket(
