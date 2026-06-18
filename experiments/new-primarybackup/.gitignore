@@ -1,0 +1,11 @@
+flake.lock
+switchovers.log
+results.json
+statediff.tmp
+capture.sock
+*.png
+
+test-results/*
+volumes/*
+etc/
+old/
