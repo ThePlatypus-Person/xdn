@@ -36,18 +36,25 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # compile the source code
-RUN if [ "$TARGETARCH" = "amd64" ]; then CC=x86_64-linux-gnu-gcc; else CC=aarch64-linux-gnu-gcc; fi && \
-    CC=$CC \
-    CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    CGO_CFLAGS="-O2" \
-    CGO_LDFLAGS="-O2" \
-    go build -buildvcs=false -trimpath \
-    -ldflags '-w -s -extldflags "-static"' -a -o main .
+RUN if [ "$TARGETPLATFORM" = "amd64" ]; then \
+        CC=x86_64-linux-gnu-gcc \
+        CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+        CGO_CFLAGS="-O2" \
+        CGO_LDFLAGS="-O2" \
+        go build -buildvcs=false -trimpath \
+        -ldflags '-w -s -extldflags "-static"' -a -o main . ; \
+    else \
+        CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+        go build -buildvcs=false -trimpath \
+        -ldflags '-w -s -extldflags "-static"' -a -o main . ; \
+    fi
+RUN mkdir -p /app/data
 
 # ===== release stage =========================================
 
 FROM scratch
 COPY --from=build-stage /app/main /app/main
+COPY --from=build-stage /app/data /app/data
 WORKDIR /app
 EXPOSE 80
 
