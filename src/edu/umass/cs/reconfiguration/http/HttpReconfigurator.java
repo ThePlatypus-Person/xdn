@@ -380,6 +380,7 @@ public class HttpReconfigurator {
 
     final ReconfiguratorFunctions rcFunctions;
 
+    private static final String HOMEPAGE_HTML = loadDashboardHtml("homepage.html");
     private static final String DASHBOARD_3D_HTML = loadDashboardHtml("dashboard3d.html");
     private static final String DASHBOARD_2D_HTML = loadDashboardHtml("dashboard2d.html");
 
@@ -408,6 +409,18 @@ public class HttpReconfigurator {
       if (msg instanceof HttpRequest) {
         HttpRequest request = this.request = (HttpRequest) msg;
         buf.setLength(0);
+
+        if (request.uri().equals("/homepage")) {
+          FullHttpResponse resp =
+                  new DefaultFullHttpResponse(
+                          HTTP_1_1,
+                          OK,
+                          Unpooled.copiedBuffer(HOMEPAGE_HTML.getBytes(StandardCharsets.UTF_8)));
+          resp.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=UTF-8");
+          resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, resp.content().readableBytes());
+          ctx.writeAndFlush(resp);
+          return;
+        }
 
         // Serve the demand visualization dashboard
         // GET /dashboard3d/{service}
