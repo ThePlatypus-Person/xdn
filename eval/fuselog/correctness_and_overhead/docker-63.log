@@ -1,0 +1,48 @@
+2026-07-15 12:52:51+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.41-1debian12 started.
+2026-07-15 12:52:52+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+2026-07-15 12:52:52+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.41-1debian12 started.
+2026-07-15T12:52:52.488296Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.0.41) starting as process 1
+2026-07-15T12:52:52.497857Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+2026-07-15T12:52:52.666317Z 0 [ERROR] [MY-011904] [InnoDB] Space id and page number stored in the page read in are [page id: space=4294967294, page number=126], should be [page id: space=4294967294, page number=9]
+2026-07-15T12:52:52.666322Z 0 [ERROR] [MY-011904] [InnoDB] Space id and page number stored in the page read in are [page id: space=4294967278, page number=277], should be [page id: space=4294967294, page number=8]
+2026-07-15T12:52:52Z UTC - mysqld got signal 11 ;
+Most likely, you have hit a bug, but this error can also be caused by malfunctioning hardware.
+BuildID[sha1]=eb92bd38129c7e2f30444bebea0b1d866f4f82be
+Thread pointer: 0x0
+Attempting backtrace. You can use the following information to find out
+where mysqld died. If you see no messages after this, something went
+terribly wrong...
+2026-07-15T12:52:52.666363Z 0 [ERROR] [MY-013183] [InnoDB] Assertion failure: log0recv.cc:1932:!page || page_is_comp(page) == dict_table_is_comp(index->table) thread 140660313159360
+InnoDB: We intentionally generate a memory trap.
+InnoDB: Submit a detailed bug report to http://bugs.mysql.com.
+InnoDB: If you get repeated assertion failures or crashes, even
+InnoDB: immediately after the mysqld startup, there may be
+InnoDB: corruption in the InnoDB tablespace. Please refer to
+InnoDB: http://dev.mysql.com/doc/refman/8.0/en/forcing-innodb-recovery.html
+InnoDB: about forcing recovery.
+2026-07-15T12:52:52Z UTC - mysqld got signal 6 ;
+Most likely, you have hit a bug, but this error can also be caused by malfunctioning hardware.
+BuildID[sha1]=eb92bd38129c7e2f30444bebea0b1d866f4f82be
+Thread pointer: 0x0
+Attempting backtrace. You can use the following information to find out
+where mysqld died. If you see no messages after this, something went
+terribly wrong...
+stack_bottom = 0 thread_stack 0x100000
+stack_bottom = 0 thread_stack 0x100000
+/usr/sbin/mysqld(my_print_stacktrace(unsigned char const*, unsigned long)+0x3d) [0x55578ff40c8d]
+/usr/sbin/mysqld(print_fatal_signal(int)+0x397) [0x55578ee4e8b7]
+/usr/sbin/mysqld(handle_fatal_signal+0x95) [0x55578ee4e965]
+/lib/x86_64-linux-gnu/libc.so.6(+0x3c050) [0x7fee1c62e050]
+/usr/sbin/mysqld(+0xe449ad) [0x55578eb3f9ad]
+/usr/sbin/mysqld(page_cur_parse_insert_rec(bool, unsigned char const*, unsigned char const*, buf_block_t*, dict_index_t*, mtr_t*)+0x77d) [0x55579008f4ad]
+/usr/sbin/mysqld(+0x2362261) [0x55579005d261]
+/usr/sbin/mysqld(recv_recover_page_func(bool, buf_block_t*)+0x62b) [0x55579006006b]
+/usr/sbin/mysqld(buf_page_io_complete(buf_page_t*, bool)+0x44e) [0x5557901e394e]
+/usr/sbin/mysqld(fil_aio_wait(unsigned long)+0x1ae) [0x5557902df14e]
+/usr/sbin/mysqld(+0x2383fb0) [0x55579007efb0]
+/usr/sbin/mysqld(std::thread::_State_impl<std::thread::_Invoker<std::tuple<Detached_thread, void (*)(unsigned long), unsigned long> > >::_M_run()+0xc6) [0x555790074b46]
+/lib/x86_64-linux-gnu/libstdc++.so.6(+0xd44a3) [0x7fee1c9a74a3]
+/lib/x86_64-linux-gnu/libc.so.6(+0x891f5) [0x7fee1c67b1f5]
+/lib/x86_64-linux-gnu/libc.so.6(__clone+0x40) [0x7fee1c6fab00]
+The manual page at http://dev.mysql.com/doc/mysql/en/crashing.html contains
+information that should help you find out what is causing the crash.
