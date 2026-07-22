@@ -10,9 +10,9 @@ only if at least one side ran with --mode fuselog -- capture latency alone),
 each showing p50/p95/p99 for both runs side by side.
 
 Usage:
-  python3 compare_summaries.py \\
-      --a runs/mysql_run1_fuselog/results/summary.json --label-a fuselog \\
-      --b runs/mysql_run1_none/results/summary.json --label-b none \\
+  python3 compare_summaries.py \
+      --a runs/mysql_run1_fuselog/results/summary.json --label-a fuselog \
+      --b runs/mysql_run1_none/results/summary.json --label-b none \
       --out comparison.png
 """
 

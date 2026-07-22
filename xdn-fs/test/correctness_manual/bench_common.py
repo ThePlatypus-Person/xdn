@@ -32,7 +32,7 @@ DIFF_NAME_RE = re.compile(r"^p(?P<pepoch>\d+):(?P<primary>.+):(?P<count>\d+)\.di
 # Maximum plausible state diff for a single request (500 MB). Above this indicates
 # protocol desynchronization (garbage size header) -- matches
 # FuselogStateDiffRecorder.MAX_STATEDIFF_BYTES.
-MAX_STATEDIFF_BYTES = 500 * 1024 * 1024
+MAX_STATEDIFF_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def diff_filename(app_key: str, count: int, pepoch: int = 0) -> str:

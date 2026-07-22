@@ -2,11 +2,10 @@
 """
 replay_checkpoints.py
 
-Replays fuselog diff/ files (p<pepoch>:<app_key>:<count>.diff), in strict
-ascending count order, starting from an empty directory (or an optional
---snp-base) -- exactly matching what snpDiffApplyThread does in
-PrimaryBackupManager (fuselog-apply <target_dir> --statediff=<diff_file>,
-one diff at a time, no batching, no skipping).
+Replays fuselog diff/ files (p<pepoch>:<app_key>:<count>.diff), starting from
+an empty directory (or an optional --snp-base) -- exactly matching what
+snpDiffApplyThread does in PrimaryBackupManager (fuselog-apply <target_dir>
+--statediff=<diff_file>, one diff at a time, no batching, no skipping).
 
 Since there's no baseline to fall back on by default, the diff sequence is
 required to be complete and gap-free starting at count=0 -- validated
@@ -21,12 +20,62 @@ and environment straight from the app's XDN descriptor, bind-mounted to
 each checkpoint's snapshot. Bring up checkpoints one at a time and inspect
 manually.
 
+Replay ORDER -- count-order (default) vs capture-time-order:
+  Every diff's <count> is a ticket number assigned when a write is *submitted*
+  (see AtomicCounter in capture_bench_concurrent.py) -- under
+  --concurrency > 1, tickets are handed out before the write/capture race
+  resolves, so ticket order is NOT necessarily the order fuselog actually
+  harvested/captured each diff in. Replaying strictly by count (the default,
+  and what production's snpDiffApplyThread does) assumes ticket order and
+  true capture order always agree. --timeline-csv lets you test that
+  assumption directly: point it at a capture_bench_concurrent.py
+  results/timeline.csv and diffs are re-sorted by each row's
+  capture_start_s (the moment a thread actually acquired the capture lock
+  and began harvesting) instead of by count, before being applied in that
+  order. Comparing a count-order replay against a capture-time-order replay
+  of the *same* diff/ directory is how you check whether ticket-order
+  replay is silently masking a corruption that only shows up when diffs are
+  applied in the order fuselog actually produced them.
+
 Usage:
+  # Basic: sequential capture_bench.py output, default count-order replay.
   python3 replay_checkpoints.py \
       --app bookcatalog-nd-mysql \
       --cmtdiff-dir runs/run1/diff \
       --checkpoints 577,980,1200,1308,1399 \
       --out-dir replays/run1
+
+  # Concurrent capture_bench_concurrent.py output, still count-order
+  # (the default -- matches what production actually does today).
+  python3 replay_checkpoints.py \
+      --app bookcatalog-nd-mysql \
+      --cmtdiff-dir runs/concurrent_run1/diff \
+      --checkpoints 500,1000,1500,2000 \
+      --out-dir replays/concurrent_run1_count_order
+
+  # Same diff/ directory, but replayed in TRUE capture order instead, via
+  # the timeline.csv that capture_bench_concurrent.py wrote alongside it.
+  # Compare this run's checkpoints against the count-order run above --
+  # a difference in which checkpoints boot cleanly (or where fuselog-apply
+  # itself fails) means count-order replay was hiding an ordering-dependent
+  # corruption that only true capture order exposes.
+  python3 replay_checkpoints.py \
+      --app bookcatalog-nd-mysql \
+      --cmtdiff-dir runs/concurrent_run1/diff \
+      --timeline-csv runs/concurrent_run1/results/timeline.csv \
+      --checkpoints 500,1000,1500,2000 \
+      --out-dir replays/concurrent_run1_capture_order
+
+  # Real XDN diffs (not from this bench suite) -- <primary> is a node ID
+  # like "west1b", not an app key, so the default app-key filter would
+  # reject every file. --skip-app-filter accepts any file matching the
+  # p<epoch>:<primary>:<count>.diff pattern regardless of <primary>.
+  python3 replay_checkpoints.py \
+      --app bookcatalog-nd-mysql \
+      --cmtdiff-dir /tmp/xdn2/state/east1a/bookcatalog-nd/e0/cmtDiff \
+      --skip-app-filter \
+      --checkpoints 577,980,1200 \
+      --out-dir replays/xdn_prod_repro
 
 Assumptions (flagging explicitly):
   - fuselog-apply is invoked as: fuselog-apply <target_dir> --statediff=<diff_file>
@@ -34,9 +83,16 @@ Assumptions (flagging explicitly):
     snpDiffCount = nextCount being set *after* a successful apply).
   - If multiple files share the same <count>, this script warns and picks one
     arbitrarily (same non-determinism as the original Java glob-scan).
+  - --timeline-csv assumes the capture_bench_concurrent.py schema: a `count`
+    column matching diff filenames' <count>, and a `capture_start_s` column.
+    count=0 (the pre-workload bootstrap diff, captured before any writer
+    thread starts) never appears as a row in timeline.csv -- it's exempted
+    from the mapping check and always sorted first, since every other diff
+    is a delta on top of it regardless of replay order.
 """
 
 import argparse
+import csv
 import json
 import shutil
 import subprocess
@@ -47,9 +103,14 @@ from pathlib import Path
 import bench_common as bc
 
 
-def discover_diffs(cmtdiff_dir: Path, app_key: str):
-    """Returns a list of (count, path) sorted ascending by count, filtered to
-    diffs belonging to app_key. Warns (does not fail) on duplicate counts."""
+def discover_diffs(cmtdiff_dir: Path, app_key: str = None):
+    """Returns a list of (count, path) sorted ascending by count. If app_key
+    is given, filters to diffs whose <primary> field matches it (the
+    convention capture_bench_concurrent.py/capture_bench.py use). If app_key
+    is None, accepts every file matching the count pattern regardless of the
+    <primary> field -- use this for real XDN diffs, where <primary> is a
+    node ID rather than an app key. Warns (does not fail) on duplicate
+    counts."""
     by_count = {}
     for entry in sorted(cmtdiff_dir.iterdir()):
         if not entry.is_file():
@@ -58,18 +119,35 @@ def discover_diffs(cmtdiff_dir: Path, app_key: str):
         if not m:
             print(f"[warn] skipping unrecognized file in diff/: {entry.name}", file=sys.stderr)
             continue
-        if m.group("primary") != app_key:
+        if app_key is not None and m.group("primary") != app_key:
+            continue
+        count = int(m.group("count"))
+        if app_key is not None and m.group("primary") != app_key:
             continue
         count = int(m.group("count"))
         if count in by_count:
             print(f"[warn] duplicate diff for count={count}: "
-                  f"{by_count[count].name} vs {entry.name} -- keeping the first, "
-                  f"matching the non-deterministic glob-scan behavior of the "
-                  f"original Java code. Check whether this indicates a stale "
-                  f"epoch leftover.", file=sys.stderr)
+                f"{by_count[count].name} vs {entry.name} -- keeping the first, "
+                f"matching the non-deterministic glob-scan behavior of the "
+                f"original Java code. Check whether this indicates a stale "
+                f"epoch leftover.", file=sys.stderr)
             continue
         by_count[count] = entry
     return sorted(by_count.items(), key=lambda kv: kv[0])
+
+
+def load_capture_order(timeline_csv: Path):
+    """Returns a dict mapping count -> capture_start_s, read from a
+    capture_bench_concurrent.py timeline.csv. capture_start_s is recorded
+    right after a thread acquires capture_lock, so it reflects the true
+    serialized harvest order (no two rows can overlap), unlike the diff's
+    filename count which is assigned as a ticket before the write/capture
+    race resolves."""
+    order = {}
+    with open(timeline_csv, newline="") as f:
+        for row in csv.DictReader(f):
+            order[int(row["count"])] = float(row["capture_start_s"])
+    return order
 
 
 def validate_complete_sequence(diffs):
@@ -158,6 +236,21 @@ def main():
     ap.add_argument("--stop-after-last-checkpoint", action="store_true",
                     help="Stop replaying once the highest requested checkpoint is reached, "
                          "instead of continuing through all remaining diffs")
+    ap.add_argument("--timeline-csv", required=False, type=Path, default=None,
+                    help="Optional path to a capture_bench_concurrent.py timeline.csv. "
+                         "If given, diffs are replayed in actual capture-time order "
+                         "(by capture_start_s) instead of by count -- use this to test "
+                         "whether count-order replay (the default, matching production's "
+                         "snpDiffApplyThread) differs from the true chronological capture "
+                         "order under concurrent writes. If omitted, behavior is unchanged "
+                         "from count-order replay.")
+    ap.add_argument("--skip-app-filter", action="store_true",
+                    help="Don't filter diff/ by app key -- accept any file matching "
+                         "p<epoch>:<primary>:<count>.diff regardless of the <primary> "
+                         "field. Use this for real XDN diffs, where <primary> is the "
+                         "primary node's ID (e.g. 'west1b'), not the app key -- the "
+                         "default app-key filter is only meaningful for diffs produced "
+                         "by capture_bench_concurrent.py/capture_bench.py.")
     args = ap.parse_args()
 
     entry, descriptor = bc.load_app_config(args.endpoints_config, args.app)
@@ -180,7 +273,7 @@ def main():
     if work_dir.exists():
         shutil.rmtree(work_dir)
 
-    diffs = discover_diffs(args.cmtdiff_dir, args.app)
+    diffs = discover_diffs(args.cmtdiff_dir, None if args.skip_app_filter else args.app)
     if not diffs:
         print(f"[error] no diffs found in --cmtdiff-dir for app={args.app}", file=sys.stderr)
         sys.exit(1)
@@ -195,12 +288,46 @@ def main():
         print(f"[init] no --snp-base given -- starting from an empty directory "
               f"({work_dir}), verified diff/ is complete and gap-free from count=0")
 
+    # Default: replay in count order (ticket order), exactly as production's
+    # snpDiffApplyThread does. If --timeline-csv is given, re-sort into true
+    # capture order instead -- this only changes the order the apply loop
+    # below walks through; `diffs` itself (and the count-order completeness
+    # check above, which always validates ticket order regardless) is
+    # untouched. See the module docstring's "Replay ORDER" section for why
+    # these two orders can differ under concurrent writers.
+    if args.timeline_csv is not None:
+        capture_order = load_capture_order(args.timeline_csv)
+        # count=0 is the initial bootstrap diff, captured before the writer
+        # threads (and thus the counter) start -- it never gets a timeline.csv
+        # row. It must always sort first regardless, since every other diff
+        # is a delta on top of it -- so it's exempt from the missing-mapping
+        # check, and given an explicit sort key instead of a dict lookup.
+        missing_ts = [count for count, _ in diffs
+                      if count not in capture_order and count != 0]
+        if missing_ts:
+            print(f"[fatal] --timeline-csv is missing capture_start_s for "
+                  f"{len(missing_ts)} count(s) present in --cmtdiff-dir: "
+                  f"{sorted(missing_ts)[:10]}{'...' if len(missing_ts) > 10 else ''}. "
+                  f"Refusing to replay with a partial ordering mapping.",
+                  file=sys.stderr)
+            sys.exit(1)
+        replay_order = sorted(
+            diffs,
+            key=lambda kv: capture_order[kv[0]] if kv[0] != 0 else float("-inf"))
+        print(f"[init] replay order: capture-time-order "
+              f"(via --timeline-csv={args.timeline_csv}, "
+              f"{len(capture_order)} capture timestamps loaded, "
+              f"count=0 pinned first as bootstrap diff)")
+    else:
+        replay_order = diffs
+        print(f"[init] replay order: count-order (default)")
+
     checkpoint_set = set(checkpoint_counts)
     last_checkpoint = max(checkpoint_counts)
     checkpoint_dirs = []
     apply_latencies_ms = []
 
-    for count, diff_file in diffs:
+    for count, diff_file in replay_order:
         ok, elapsed_ms = run_fuselog_apply(args.fuselog_apply_bin, work_dir, diff_file)
         apply_latencies_ms.append(elapsed_ms)
         if not ok:
