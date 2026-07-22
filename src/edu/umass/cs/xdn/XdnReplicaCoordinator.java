@@ -25,6 +25,7 @@ import edu.umass.cs.reconfiguration.reconfigurationpackets.ReplicableClientReque
 import edu.umass.cs.reconfiguration.reconfigurationpackets.SetCoordinatorNodeRequest;
 import edu.umass.cs.reconfiguration.reconfigurationutils.RequestParseException;
 import edu.umass.cs.sequential.AwReplicaCoordinator;
+import edu.umass.cs.xdn.cluster.StatefulClusterReplicaCoordinator;
 import edu.umass.cs.xdn.interfaces.behavior.RequestBehaviorType;
 import edu.umass.cs.xdn.request.XdnGetReplicaInfoRequest;
 import edu.umass.cs.xdn.request.XdnHttpRequest;
@@ -34,6 +35,7 @@ import edu.umass.cs.xdn.service.ConsistencyModel;
 import edu.umass.cs.xdn.service.RequestMatcher;
 import edu.umass.cs.xdn.service.ServiceInstance;
 import edu.umass.cs.xdn.service.ServiceProperty;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;
 import java.io.IOException;
@@ -88,6 +90,7 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
   private final AbstractReplicaCoordinator<NodeIDType> clientCentricReplicaCoordinator;
   private final AbstractReplicaCoordinator<NodeIDType> causalReplicaCoordinator;
   private final AbstractReplicaCoordinator<NodeIDType> lazyReplicaCoordinator;
+  private final AbstractReplicaCoordinator<NodeIDType> statefulClusterCoordinator;
 
   // mapping between service name to the service's coordination manager
   private final Map<String, AbstractReplicaCoordinator<NodeIDType>> serviceCoordinator;
@@ -151,6 +154,8 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
         new CausalReplicaCoordinator<>(app, myID, unstringer, messenger);
     LazyReplicaCoordinator<NodeIDType> lazyReplicaCoordinator =
         new LazyReplicaCoordinator<>(app, myID, unstringer, messenger);
+    StatefulClusterReplicaCoordinator<NodeIDType> statefulClusterCoordinator =
+        new StatefulClusterReplicaCoordinator<>(app, myID, unstringer, messenger);
 
     this.primaryBackupCoordinator = primaryBackupReplicaCoordinator;
     this.paxosCoordinator = paxosReplicaCoordinator;
@@ -160,6 +165,7 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
     this.clientCentricReplicaCoordinator = bayouReplicaCoordinator;
     this.causalReplicaCoordinator = causalReplicaCoordinator;
     this.lazyReplicaCoordinator = lazyReplicaCoordinator;
+    this.statefulClusterCoordinator = statefulClusterCoordinator;
 
     // initialize empty service -> coordinator mapping
     this.serviceCoordinator = new ConcurrentHashMap<>();
@@ -460,6 +466,9 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
   private boolean createNotFoundResponse(Request request, ExecutedCallback callback) {
     // Unwrap the XDN payload. Single requests and batches follow different shapes.
     String serviceName = request.getServiceName();
+    System.out.printf(
+        ">> XDNReplicaCoordinator:%s@%x 404 for name=%s known=%s%n",
+        myNodeID, System.identityHashCode(this), serviceName, this.serviceCoordinator.keySet());
     Request innerRequest = request;
     if (request instanceof ReplicableClientRequest rcr) {
       innerRequest = rcr.getRequest();
@@ -494,10 +503,15 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
   }
 
   private static HttpResponse buildNotFoundResponse(String errorMessage, HttpHeaders headers) {
+    ByteBuf body = Unpooled.copiedBuffer(errorMessage.getBytes());
+    // Content-Length is required for correct framing: the HTTP frontend may override the
+    // Connection header to keep-alive, and a keep-alive response without explicit framing
+    // leaves the client blocked waiting for EOF to delimit the body.
+    headers.setInt(HttpHeaderNames.CONTENT_LENGTH, body.readableBytes());
     return new DefaultFullHttpResponse(
         HttpVersion.HTTP_1_1,
         HttpResponseStatus.NOT_FOUND,
-        Unpooled.copiedBuffer(errorMessage.getBytes()),
+        body,
         headers,
         new DefaultHttpHeaders());
   }
@@ -527,7 +541,10 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
 
     // prepare for the response
     String protocolName = coordinator != null ? coordinator.getClass().getSimpleName() : "?";
-    String requestedConsistency = currServiceProperty.getConsistencyModel().toString();
+    String requestedConsistency =
+        currServiceProperty.isClusterManaged()
+            ? "cluster-managed"
+            : currServiceProperty.getConsistencyModel().toString();
     String offeredConsistency = getConsistencyModelFromCoordinator(serviceName, coordinator);
     String roleName = "replica";
 
@@ -624,6 +641,10 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
     }
     if (coordinator instanceof LazyReplicaCoordinator<NodeIDType>) {
       return ConsistencyModel.EVENTUAL.toString();
+    }
+    if (coordinator instanceof StatefulClusterReplicaCoordinator<NodeIDType>) {
+      // Consistency is owned by the cluster itself (e.g. etcd's Raft), not by XDN.
+      return "cluster-managed";
     }
     return "?";
   }
@@ -733,8 +754,11 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
     this.serviceProperties.put(serviceName, serviceProperty);
 
     System.out.printf(
-        ">> XDNReplicaCoordinator:%s name=%s coordinator=%s\n",
-        myNodeID, serviceName, coordinator.getClass().getSimpleName());
+        ">> XDNReplicaCoordinator:%s@%x name=%s coordinator=%s\n",
+        myNodeID,
+        System.identityHashCode(this),
+        serviceName,
+        coordinator.getClass().getSimpleName());
     return true;
   }
 
@@ -768,6 +792,13 @@ public class XdnReplicaCoordinator<NodeIDType> extends AbstractReplicaCoordinato
 
   private AbstractReplicaCoordinator<NodeIDType> inferCoordinatorByProperties(
       ServiceProperty serviceProperties) {
+    // Cluster services run their own consensus inside the containers; XDN only places, names,
+    // and routes. Picked before the determinism/consistency branches because those fields are
+    // meaningless for a self-clustering service.
+    if (serviceProperties.isClusterManaged()) {
+      return this.statefulClusterCoordinator;
+    }
+
     // An explicitly declared EVENTUAL consistency always uses the anti-entropy
     // LazyReplicaCoordinator, regardless of determinism or declared behaviors:
     // frontier-based checkpoint transfer converges replicas to identical state even
