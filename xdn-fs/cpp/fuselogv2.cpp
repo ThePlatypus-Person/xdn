@@ -183,7 +183,47 @@ static void push_statediff(statediff_action* sd) {
     do {
 	sd->next = old_head;
     } while (!statediff_head.compare_exchange_weak(
-		old_head, sd, memory_order_release, memory_order_relaxed));
+	    old_head, sd, memory_order_release, memory_order_relaxed));
+}
+
+// configurations for the write/harvest race-timing trace log (diagnostic
+// only; used to correlate a write's real pwrite() effect against the
+// harvest that snapshots statediff_head, to detect Case 2-style splitting
+// of a write's record into the wrong diff). Disabled unless
+// FUSELOG_TRACE_FILE is set.
+static const char       *fuselog_trace_file = nullptr;
+static FILE             *trace_fp           = nullptr;
+static atomic<uint64_t>  harvest_seq{0};
+
+// --- diagnostic trace log (write/harvest race timing) -----------------
+// Wall-clock (not steady_clock) on purpose: needs to be comparable against
+// timestamps logged by a separate Python process, which only has wall-clock
+// available. Only ever called when trace_fp != nullptr.
+static double trace_now_epoch_secs() {
+    using namespace std::chrono;
+    return duration_cast<duration<double>>(
+	    system_clock::now().time_since_epoch()).count();
+}
+
+static void trace_write_done(const char* path, uint64_t offset, uint64_t size) {
+    if (!trace_fp) return;
+    fprintf(trace_fp, "WRITE_DONE ts=%.6f path=%s offset=%lu size=%lu\n",
+	    trace_now_epoch_secs(), path,
+	    (unsigned long) offset, (unsigned long) size);
+}
+
+static void trace_push(uint64_t fid, uint64_t offset, uint64_t size) {
+    if (!trace_fp) return;
+    fprintf(trace_fp, "PUSH ts=%.6f fid=%lu offset=%lu size=%lu\n",
+	    trace_now_epoch_secs(),
+	    (unsigned long) fid, (unsigned long) offset, (unsigned long) size);
+}
+
+static void trace_harvest() {
+    if (!trace_fp) return;
+    uint64_t seq = harvest_seq.fetch_add(1, memory_order_relaxed);
+    fprintf(trace_fp, "HARVEST ts=%.6f seq=%lu\n",
+	    trace_now_epoch_secs(), (unsigned long) seq);
 }
 
 // configurations for notify socket
@@ -259,6 +299,14 @@ int main(int argc, char *argv[]) {
     is_sd_coalesce = getenv_bool("WRITE_COALESCING", true);
     is_sd_prune    = getenv_bool("FUSELOG_PRUNE", true);
     is_sd_compress = getenv_bool("FUSELOG_COMPRESSION", false);
+    if (char* env_p = getenv("FUSELOG_TRACE_FILE")) {
+	fuselog_trace_file = env_p;
+	trace_fp = fopen(fuselog_trace_file, "w");
+	if (!trace_fp) {
+	    logging(LOG_ERROR, "failed to open FUSELOG_TRACE_FILE %s\n",
+		    fuselog_trace_file);
+	}
+    }
 
     logging(LOG_INFO, " Welcome to the FuselogFS for XDN\n");
     logging(LOG_INFO, " - fuselog socket file : %s\n", fuselog_socket_file);
@@ -266,6 +314,8 @@ int main(int argc, char *argv[]) {
     logging(LOG_INFO, " - sd_coalesce         : %s\n", is_sd_coalesce ? "true" : "false");
     logging(LOG_INFO, " - sd_prune            : %s\n", is_sd_prune    ? "true" : "false");
     logging(LOG_INFO, " - sd_compress         : %s\n", is_sd_compress ? "true" : "false");
+    logging(LOG_INFO, " - trace_file          : %s\n",
+	    fuselog_trace_file ? fuselog_trace_file : "(disabled)");
 
     // initialize fuse handlers
     fuse_operations ops;
@@ -427,8 +477,19 @@ static int send_gathered_statediffs(int conn_fd) {
     //   - from_fid  8 bytes
     //   - to_fid    8 bytes
 
-    // Atomically harvest the entire statediff list — O(1), no mutex.
-    statediff_action* head = statediff_head.exchange(nullptr, memory_order_acq_rel);
+    // NOTE (test only): stack exchange and fid-table moveout combined into
+    // ONE critical section, under the SAME fid_mutex the write path now
+    // holds across assign-through-push. This closes the window where a fid
+    // gets registered, harvested-and-cleared, and only *then** pushed --
+    // see if corruption disappears with this in place.
+    statediff_action* head;
+    unordered_map<string, uint64_t> local_filename_to_fid;
+    {
+	lock_guard<mutex> lk(fid_mutex);
+	head = statediff_head.exchange(nullptr, memory_order_acq_rel);
+	local_filename_to_fid = std::move(filename_to_fid);
+    }
+    trace_harvest();
 
     // Print compute_diff throughput so SIMD vs scalar runs can be A/B'd.
     // Gated by log_level so production builds (LOG_INFO) get DCE'd here.
@@ -446,13 +507,6 @@ static int send_gathered_statediffs(int conn_fd) {
 		(unsigned long) (n / 1000000),
 		mbps, avg_ns,
 		fuselog_simd_name());
-    }
-
-    // Snapshot filename_to_fid under fid_mutex — brief hold.
-    unordered_map<string, uint64_t> local_filename_to_fid;
-    {
-	lock_guard<mutex> lk(fid_mutex);
-	local_filename_to_fid = std::move(filename_to_fid);
     }
 
     /* Counting the required space */
@@ -953,6 +1007,11 @@ static void fuselog_destroy(void *private_data) {
     statediff_action* p = statediff_head.exchange(nullptr, memory_order_acq_rel);
     while (p) { statediff_action* nxt = p->next; delete p; p = nxt; }
 
+    if (trace_fp) {
+	fclose(trace_fp);
+	trace_fp = nullptr;
+    }
+
     return;
 }
 
@@ -1088,7 +1147,6 @@ static int fuselog_mknod(const char *orig_path, mode_t mode, dev_t rdev) {
 	    cur_fid = filename_to_fid.size();
 	    filename_to_fid[path_str] = cur_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_CREATE;
@@ -1097,6 +1155,7 @@ static int fuselog_mknod(const char *orig_path, mode_t mode, dev_t rdev) {
 	sd->gid     = fuse_get_context()->gid;
 	sd->mode    = mode;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(path);
@@ -1134,13 +1193,13 @@ static int fuselog_mkdir(const char *orig_path, mode_t mode) {
 	    cur_fid = filename_to_fid.size();
 	    filename_to_fid[path_str] = cur_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_MKDIR;
 	sd->fid     = cur_fid;
 	sd->mode    = mode;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(path);
@@ -1178,7 +1237,6 @@ static int fuselog_symlink(const char *from, const char *orig_to) {
 	    link_fid = filename_to_fid.size();
 	    filename_to_fid[to_str] = link_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_SYMLINK;
@@ -1191,6 +1249,7 @@ static int fuselog_symlink(const char *from, const char *orig_to) {
 		reinterpret_cast<const unsigned char*>(from_str.data()),
 		from_str.size());
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(to);
@@ -1222,7 +1281,6 @@ static int fuselog_unlink(const char *orig_path) {
 		cur_fid = filename_to_fid.size();
 		filename_to_fid[path_str] = cur_fid;
 	    }
-	    fid_mutex.unlock();
 
 	    // capture and gather the statediff
 	    auto* sd = new statediff_action{};
@@ -1230,6 +1288,7 @@ static int fuselog_unlink(const char *orig_path) {
 	    sd->fid     = cur_fid;
 	    sd->offset  = 0;
 	    push_statediff(sd);
+	    fid_mutex.unlock();
 	}
 	auto end_time     = chrono::high_resolution_clock::now();
 	auto sd_cap_time  = chrono::duration_cast<chrono::nanoseconds>
@@ -1266,12 +1325,12 @@ static int fuselog_rmdir(const char *orig_path) {
 	    cur_fid = filename_to_fid.size();
 	    filename_to_fid[path_str] = cur_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_RMDIR;
 	sd->fid     = cur_fid;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(path);
@@ -1312,12 +1371,12 @@ static int fuselog_rename(const char *orig_from, const char *orig_to,
 		    from_fid = filename_to_fid.size();
 		    filename_to_fid[from_path_str] = from_fid;
 		}
-		fid_mutex.unlock();
 
 		auto* sd = new statediff_action{};
 		sd->sd_type = SD_TYPE_UNLINK;
 		sd->fid     = from_fid;
 		push_statediff(sd);
+		fid_mutex.unlock();
 	    } else if (from_is_silly) {
 		// Reverse silly-rename (rare). Skip capture entirely; the file
 		// never had user-visible content at the silly name.
@@ -1340,13 +1399,13 @@ static int fuselog_rename(const char *orig_from, const char *orig_to,
 		    to_fid = filename_to_fid.size();
 		    filename_to_fid[to_path_str] = to_fid;
 		}
-		fid_mutex.unlock();
 
 		auto* sd = new statediff_action{};
 		sd->sd_type = SD_TYPE_RENAME;
 		sd->fid     = from_fid;
 		sd->offset  = to_fid;          // TODO: use another field!!!
 		push_statediff(sd);
+		fid_mutex.unlock();
 	    }
 	}
 	auto end_time     = chrono::high_resolution_clock::now();
@@ -1406,13 +1465,13 @@ static int fuselog_link(const char *orig_from, const char *orig_to) {
 	    to_fid = filename_to_fid.size();
 	    filename_to_fid[to_str] = to_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_LINK;
 	sd->fid     = from_fid;
 	sd->offset  = to_fid;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(from);
@@ -1444,13 +1503,13 @@ static int fuselog_chmod(const char *orig_path, mode_t mode,
 	    cur_fid = filename_to_fid.size();
 	    filename_to_fid[path_str] = cur_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_CHMOD;
 	sd->fid     = cur_fid;
 	sd->mode    = mode;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(path);
@@ -1482,7 +1541,6 @@ static int fuselog_chown(const char *orig_path, uid_t uid, gid_t gid,
 	    cur_fid = filename_to_fid.size();
 	    filename_to_fid[path_str] = cur_fid;
 	}
-	fid_mutex.unlock();
 
 	auto* sd = new statediff_action{};
 	sd->sd_type = SD_TYPE_CHOWN;
@@ -1490,6 +1548,7 @@ static int fuselog_chown(const char *orig_path, uid_t uid, gid_t gid,
 	sd->uid     = uid;
 	sd->gid     = gid;
 	push_statediff(sd);
+	fid_mutex.unlock();
     }
 
     free(path);
@@ -1522,7 +1581,6 @@ static int fuselog_truncate(const char *orig_path, off_t size,
 		fid = filename_to_fid.size();
 		filename_to_fid[path_str] = fid;
 	    }
-	    fid_mutex.unlock();
 
 	    // capture and gather the statediff
 	    auto* sd = new statediff_action{};
@@ -1530,6 +1588,7 @@ static int fuselog_truncate(const char *orig_path, off_t size,
 	    sd->fid     = fid;
 	    sd->offset  = size;          // TODO: use another field!!!
 	    push_statediff(sd);
+	    fid_mutex.unlock();
 	}
 	auto end_time     = chrono::high_resolution_clock::now();
 	auto sd_cap_time  = chrono::duration_cast<chrono::nanoseconds>
@@ -1736,6 +1795,11 @@ static int fuselog_write(const char *orig_path, const char *buf, size_t size,
 	return res;
     }
 
+    // Real effect landed on disk now. Timestamp before any capture
+    // bookkeeping (fid lookup, coalescing, push) so this reflects the true
+    // write-completion instant, not the recording instant.
+    trace_write_done(path, (uint64_t) offset, (uint64_t) size);
+
     /* Store the statediff into an external file */
     if (is_sd_capture) {
 	auto start_time = chrono::high_resolution_clock::now();
@@ -1755,7 +1819,6 @@ static int fuselog_write(const char *orig_path, const char *buf, size_t size,
 		cur_fid = filename_to_fid.size();
 		filename_to_fid[path_str] = cur_fid;
 	    }
-	    fid_mutex.unlock();
 
 	    if (is_sd_coalesce && coalesced_write.size() > 0) {
 		// Phase 1: Merge adjacent chunks whose gap < COALESCE_ACTION_OVERHEAD.
@@ -1781,6 +1844,7 @@ static int fuselog_write(const char *orig_path, const char *buf, size_t size,
 			sd->offset  = m.offset;
 			sd->take_buffer(std::move(m.arena), m.arena_offset, m.size);
 			push_statediff(sd);
+			trace_push(cur_fid, m.offset, m.size);
 		    }
 		} else {
 		    // Raw wins: push the full write buffer as one action
@@ -1790,6 +1854,7 @@ static int fuselog_write(const char *orig_path, const char *buf, size_t size,
 		    sd->offset  = offset;
 		    sd->copy_buffer(reinterpret_cast<const unsigned char*>(buf), size);
 		    push_statediff(sd);
+		    trace_push(cur_fid, (uint64_t) offset, (uint64_t) size);
 		}
 	    } else if (is_sd_coalesce) {
 		// Coalescing produced no diff chunks — no data changed, nothing to push.
@@ -1802,7 +1867,9 @@ static int fuselog_write(const char *orig_path, const char *buf, size_t size,
 		sd->offset  = offset;
 		sd->copy_buffer(reinterpret_cast<const unsigned char*>(buf), size);
 		push_statediff(sd);
+		trace_push(cur_fid, (uint64_t) offset, (uint64_t) size);
 	    }
+	    fid_mutex.unlock();
 	}
 
 	auto end_time     = chrono::high_resolution_clock::now();
